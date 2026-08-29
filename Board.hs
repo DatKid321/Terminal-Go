@@ -4,7 +4,7 @@ import Data.Array
 import Data.List (intercalate)
 import Control.Monad (ap, join)
 
-import Parser
+import Types
 
 data Position
   = First

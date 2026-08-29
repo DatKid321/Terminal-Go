@@ -7,6 +7,8 @@ import Data.Maybe (maybeToList)
 import Control.Monad.Trans.State
 import Data.Functor
 
+import Types
+
 type Parser a = StateT String Maybe a
 
 parse :: Parser a -> String -> Maybe (a,String)
@@ -32,13 +34,6 @@ tok = (<* spaces)
 
 charTok :: Char -> Parser Char
 charTok = tok . is
-
-data Player
-  = Black
-  | White
-  deriving (Show, Eq)
-
-type Coord = (Int, Int)
 
 parseColour :: Parser Player
 parseColour = (is 'B' $> Black) <|> (is 'W' $> White)
