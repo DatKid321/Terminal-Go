@@ -1,0 +1,9 @@
+{
+    "editor.fontSize": 12,
+    "editor.fontFamily": "Fira Code",
+    "terminal.integrated.fontSize": 12,
+    "terminal.integrated.minimumContrastRatio": 1,
+    "terminal.integrated.fontFamily": "Fira Code",
+    "terminal.integrated.stickyScroll.enabled": false,
+    "extensions.ignoreRecommendations": true
+}
