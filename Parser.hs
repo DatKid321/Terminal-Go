@@ -1,17 +1,17 @@
 module Parser where
 
 import Control.Applicative (Alternative (..))
-import Data.Char (isAlpha, isDigit, isLower, isSpace, isUpper, ord)
+import Data.Char (isAlpha, isSpace, ord)
 import Data.List (uncons, find)
 import Data.Maybe (maybeToList)
-import Control.Monad.Trans.State
-import Data.Functor
+import Control.Monad.Trans.State (StateT(..), runStateT)
+import Data.Functor (($>))
 
 import Types
 
 type Parser a = StateT String Maybe a
 
-parse :: Parser a -> String -> Maybe (a,String)
+parse :: Parser a -> String -> Maybe (a, String)
 parse = runStateT
 
 satisfy :: (Char -> Bool) -> Parser Char
@@ -40,8 +40,8 @@ parseColour = (is 'B' $> Black) <|> (is 'W' $> White)
 
 parseCoords :: Parser Coord
 parseCoords = (,) <$> (charTok '[' *> alphaIndex) <*> (alphaIndex <* charTok ']')
-    where
-        alphaIndex = fmap (subtract 96 . ord) alpha
+  where
+    alphaIndex = fmap (subtract 96 . ord) alpha
 
 parseMove :: Parser (Player, Coord)
 parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseCoords

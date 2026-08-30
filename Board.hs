@@ -7,30 +7,30 @@ import Control.Monad (ap, join)
 import Types
 
 data Position
-  = First
-  | Middle
-  | Last
-  deriving (Show, Eq, Ord, Enum, Ix)
+    = First
+    | Middle
+    | Last
+    deriving (Show, Eq, Ord, Enum, Ix)
 
 type Location = (Position, Position)
 
 data Marking
-  = Blank
-  | Star
-  deriving (Show, Eq)
+    = Blank
+    | Star
+    deriving (Show, Eq)
 
 data Intersection
-  = Empty Marking
-  | Stone Player Marking
-  deriving (Show, Eq)
+    = Empty Marking
+    | Stone Player Marking
+    deriving (Show, Eq)
 
 type Board = Array Coord Intersection
 
 data Reset
-  = None
-  | Store
-  | Full
-  deriving (Show, Eq)
+    = None
+    | Store
+    | Full
+    deriving (Show, Eq)
 
 -- Helpers
 
@@ -45,9 +45,9 @@ wrap pre suf = (pre ++) . (++ suf)
 
 colour :: Reset -> Maybe (Int, Int, Int) -> Maybe (Int, Int, Int) -> String -> String -- Colours a string
 colour res bg fg str
-  | res == None  = ansiString                               -- Keeps colour
-  | res == Store = "\ESC7" ++ ansiString ++ "\ESC8\ESC[1C"  -- Resets colour to previous
-  | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
+    | res == None  = ansiString                               -- Keeps colour
+    | res == Store = "\ESC7" ++ ansiString ++ "\ESC8\ESC[1C"  -- Resets colour to previous
+    | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
   where
     ansi :: Int -> Maybe (Int, Int, Int) -> String
     ansi n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
@@ -58,33 +58,31 @@ colour res bg fg str
 -- For creating an empty board
 
 hoshi :: Int -> [Coord] -- Gets star points for a board size
-hoshi size =
-  let
+hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
+  where
     mid :: Int
     mid = size `div` 2 + 1
 
     corners :: [Int]
     corners
-      | size > 11 = [4, size - 3]
-      | size >= 8 = [3, size - 2]
-      | otherwise = []
+        | size > 11 = [4, size - 3]
+        | size >= 8 = [3, size - 2]
+        | otherwise = []
 
     sides :: [Int]
     sides = [mid | odd size, size >= 17]
 
     edge :: [Int]
     edge = corners ++ sides
-  in
-    liftA2 (,) edge edge ++ [dup mid | odd size]
 
 getLoc :: Int -> Coord -> Location -- Gets location of coord (corner, side, centre)
 getLoc size (x, y) = (loc y, loc x)
   where
     loc :: Int -> Position
     loc n
-      | n == 1    = First
-      | n == size = Last
-      | otherwise = Middle
+        | n == 1    = First
+        | n == size = Last
+        | otherwise = Middle
 
 emptyBoard :: Int -> Board -- Creates an empty board
 emptyBoard size = array extents $ map set $ range extents
@@ -93,7 +91,12 @@ emptyBoard size = array extents $ map set $ range extents
     stars   = hoshi size
 
     set :: Coord -> (Coord, Intersection)
-    set pos = (pos, Empty $ if pos `elem` stars then Star else Blank)
+    set pos = (pos, Empty marking)
+      where
+        marking :: Marking
+        marking
+            | pos `elem` stars = Star
+            | otherwise        = Blank
 
 -- For printing an established board
 
@@ -101,13 +104,15 @@ dim :: Board -> Int -- Get dimension of board
 dim = fst . snd . bounds
 
 printIntersection :: Int -> Coord -> Intersection -> String -- Get a string representing an intersection
-printIntersection size pos intersection =
-  case intersection of
+printIntersection size pos intersection = case intersection of
     Empty Star -> "*"
-    Empty Blank -> listArray (extends First Last) ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"] ! getLoc size pos
+    Empty Blank -> glyphs ! getLoc size pos
 
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\x25CF"
     Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\x25CF"
+  where
+    glyphs :: Array Location String
+    glyphs = listArray (extends First Last) ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"]
 
 {-
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
@@ -134,9 +139,9 @@ printBoard board = wrap "\ESC[?25l" "\ESC[?25h" . unlines $ map (style . interca
 
 placeStone :: Board -> Player -> Coord -> Maybe Board
 placeStone board player pos
-  | not $ inRange (bounds board) pos = Nothing
-  | Empty mark <- board ! pos = Just $ board // [(pos, Stone player mark)]
-  | otherwise = Nothing
+    | not $ inRange (bounds board) pos = Nothing
+    | Empty mark <- board ! pos = Just $ board // [(pos, Stone player mark)]
+    | otherwise = Nothing
 
 {-
 main :: IO ()
