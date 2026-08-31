@@ -1,7 +1,8 @@
 module Board where
 
-import Data.Array
 import Data.List (intercalate)
+import Data.Bool (bool)
+import Control.Applicative (liftA2, liftA3)
 import Control.Monad (ap, join)
 
 import Types
@@ -10,21 +11,16 @@ data Position
     = First
     | Middle
     | Last
-    deriving (Show, Eq, Ord, Enum, Ix)
+    deriving (Show, Eq, Enum)
 
 type Location = (Position, Position)
 
-data Marking
-    = Blank
-    | Star
+data Colour
+    = Empty
+    | Stone Player
     deriving (Show, Eq)
 
-data Intersection
-    = Empty Marking
-    | Stone Player Marking
-    deriving (Show, Eq)
-
-type Board = Array Coord Intersection
+type Board = Point -> Colour
 
 data Reset
     = None
@@ -32,33 +28,32 @@ data Reset
     | Full
     deriving (Show, Eq)
 
+type RGB = (Int, Int, Int)
+
 -- Helpers
 
-dup :: a -> (a, a)
-dup = join (,)
-
-extends :: a -> a -> ((a, a), (a, a))
-extends x y = (dup x, dup y)
-
-wrap :: String -> String -> String -> String
+wrap :: String -> String -> String -> String -- Add a prefix and suffix to a string
 wrap pre suf = (pre ++) . (++ suf)
 
-colour :: Reset -> Maybe (Int, Int, Int) -> Maybe (Int, Int, Int) -> String -> String -- Colours a string
-colour res bg fg str
+tup :: (Show a, Read t) => Int -> a -> t -- Create tuple with value repeated n times (just kinda fun)
+tup n = read . wrap "(" ")" . intercalate "," . replicate n . show
+
+ansi :: Reset -> Maybe RGB -> Maybe RGB -> String -> String -- Colours a string
+ansi res bg fg str
     | res == None  = ansiString                               -- Keeps colour
     | res == Store = "\ESC7" ++ ansiString ++ "\ESC8\ESC[1C"  -- Resets colour to previous
     | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
   where
-    ansi :: Int -> Maybe (Int, Int, Int) -> String
-    ansi n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
+    ansiColour :: Int -> Maybe RGB -> String
+    ansiColour n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
 
     ansiString :: String
-    ansiString = ansi 48 bg ++ ansi 38 fg ++ str
+    ansiString = ansiColour 48 bg ++ ansiColour 38 fg ++ str
 
 -- For creating an empty board
 
-hoshi :: Int -> [Coord] -- Gets star points for a board size
-hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
+hoshi :: Int -> [Point] -- Gets star points for a board size
+hoshi size = liftA2 (,) edge edge ++ [tup 2 mid | odd size]
   where
     mid :: Int
     mid = size `div` 2 + 1
@@ -75,7 +70,7 @@ hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
     edge :: [Int]
     edge = corners ++ sides
 
-getLoc :: Int -> Coord -> Location -- Gets location of coord (corner, side, centre)
+getLoc :: Int -> Point -> Location -- Gets location of point (corner, side, centre)
 getLoc size (x, y) = (loc y, loc x)
   where
     loc :: Int -> Position
@@ -84,68 +79,52 @@ getLoc size (x, y) = (loc y, loc x)
         | n == size = Last
         | otherwise = Middle
 
-emptyBoard :: Int -> Board -- Creates an empty board
-emptyBoard size = array extents $ map set $ range extents
-  where
-    extents = extends 1 size
-    stars   = hoshi size
+points :: Int -> [Point] -- Gets array of points
+points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
 
-    set :: Coord -> (Coord, Intersection)
-    set pos = (pos, Empty marking)
-      where
-        marking :: Marking
-        marking
-            | pos `elem` stars = Star
-            | otherwise        = Blank
+inside :: Int -> Point -> Bool -- Checks if a point is inside a board
+inside size (x, y) = all (liftA2 (&&) (1 <=) (<= size)) [x, y]
+
+emptyBoard :: Board -- Defines an empty board
+emptyBoard = const Empty
 
 -- For printing an established board
 
-dim :: Board -> Int -- Get dimension of board
-dim = fst . snd . bounds
+setIntersection :: Point -> Colour -> Board -> Board -- Give a point on the board a mark
+setIntersection target mark board = liftA3 bool board (const mark) (target ==)
 
-printIntersection :: Int -> Coord -> Intersection -> String -- Get a string representing an intersection
-printIntersection size pos intersection = case intersection of
-    Empty Star -> "*"
-    Empty Blank -> listArray (extends First Last) glyphs ! getLoc size pos
-
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\x25CF"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\x25CF"
+printIntersection :: Int -> Point -> Colour -> String
+printIntersection size pos colour = case colour of
+    Empty        -> bool (glyph $ getLoc size pos) "*" $ pos `elem` hoshi size
+    Stone player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
   where
-    glyphs :: [String]
-    glyphs = ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"]
+    glyphs :: [[String]]
+    glyphs = [["\x250C", "\x252C", "\x2510"], ["\x251C", "\x253C", "\x2524"], ["\x2514", "\x2534", "\x2518"]]
 
-{-
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x030D\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
--}
+    glyph :: Location -> String
+    glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
 
-row :: Board -> Int -> [(Coord, Intersection)]
-row board y = map (ap (,) (board !)) ((, y) <$> [1 .. dim board])
+row :: Int -> Board -> Int -> [(Point, Colour)]
+row size board y = map (ap (,) board) $ (, y) <$> [1 .. size]
 
-printBoard :: Board -> String
-printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. dim board]
+printBoard :: Int -> Board -> String
+printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . render . row size board) [1 .. size]
   where
-    hide :: String -> String
+    hide :: String -> String -- Put in main?
     hide = wrap "\ESC[?25l" "\ESC[?25h"
 
     style :: String -> String
-    style = colour Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
+    style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
-    render :: [(Coord, Intersection)] -> [String]
-    render = map $ uncurry $ printIntersection $ dim board
+    render :: [(Point, Colour)] -> [String]
+    render = map $ uncurry $ printIntersection size
 
 -- Placing a stone
 
--- Maybe combine nothing cases?
-placeStone :: Board -> Player -> Coord -> Maybe Board
-placeStone board player pos
-    | not $ inRange (bounds board) pos = Nothing
-    | Empty mark <- board ! pos        = Just $ board // [(pos, Stone player mark)]
-    | otherwise                        = Nothing
+placeStone :: Int -> Board -> Player -> Point -> Maybe Board
+placeStone size board player pos
+    | inside size pos, Empty <- board pos = Just $ setIntersection pos (Stone player) board
+    | otherwise                           = Nothing
 
 {-
 main :: IO ()
@@ -192,4 +171,13 @@ Next steps:
 Arrow key input - Rather than typing coords, interactive cursor
 Letter coordinates - letters, numbers, characters
 
+-}
+
+{-
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x030D\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
 -}

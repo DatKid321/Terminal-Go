@@ -3,6 +3,6 @@ module Types where
 data Player
     = Black
     | White
-    deriving (Show, Eq)
+    deriving (Show, Eq, Enum)
 
-type Coord = (Int, Int)
+type Point = (Int, Int)
