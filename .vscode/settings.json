@@ -6,5 +6,6 @@
     "terminal.integrated.fontFamily": "Fira Code",
     "terminal.integrated.stickyScroll.enabled": false,
     "extensions.ignoreRecommendations": true,
+    "editor.inlayHints.enabled": "off",
     "haskell.manageHLS": "PATH"
 }

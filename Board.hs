@@ -39,7 +39,7 @@ ansi res bg fg str
     | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
   where
     ansiColour :: Int -> Maybe RGB -> String
-    ansiColour n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
+    ansiColour n = maybe "" $ \(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m"
 
     ansiString :: String
     ansiString = ansiColour 48 bg ++ ansiColour 38 fg ++ str
@@ -76,17 +76,11 @@ getLoc size (x, y) = (loc y, loc x)
 points :: Int -> [Point] -- Gets array of points
 points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
 
-emptyBoard :: Board -- Defines an empty board
-emptyBoard = const Empty
-
 -- For printing an established board
 
-setIntersection :: Point -> Colour -> Board -> Board -- Give a point on the board a mark
-setIntersection target mark board = liftA3 bool board (const mark) (target ==)
-
-printIntersection :: Int -> Point -> Colour -> String
-printIntersection size pos colour = case colour of
-    Empty        -> bool (glyph $ getLoc size pos) "*" $ pos `elem` hoshi size
+printPoint :: Board -> Point -> Colour -> String
+printPoint board pos colour = case colour of
+    Empty        -> bool (glyph $ getLoc (size board) pos) "*" $ pos `elem` hoshi (size board)
     Stone player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
   where
     glyphs :: [[String]]
@@ -95,11 +89,11 @@ printIntersection size pos colour = case colour of
     glyph :: Location -> String
     glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
 
-row :: Int -> Board -> Int -> [(Point, Colour)]
-row size board y = map (ap (,) board) $ (, y) <$> [1 .. size]
+row :: Board -> Int -> [(Point, Colour)]
+row board y = map (ap (,) $ position board) $ (, y) <$> [1 .. size board]
 
-printBoard :: Int -> Board -> String
-printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . render . row size board) [1 .. size]
+printBoard :: Board -> String
+printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. size board]
   where
     hide :: String -> String -- Put in main?
     hide = wrap "\ESC[?25l" "\ESC[?25h"
@@ -108,14 +102,14 @@ printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . ren
     style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
     render :: [(Point, Colour)] -> [String]
-    render = map $ uncurry $ printIntersection size
+    render = map $ uncurry $ printPoint board
 
 -- Placing a stone
 
-placeStone :: Int -> Board -> Player -> Point -> Maybe Board
-placeStone size board player pos
-    | inside size pos, Empty <- board pos = Just $ setIntersection pos (Stone player) board
-    | otherwise                           = Nothing
+placeStone :: Board -> Player -> Point -> Maybe Board
+placeStone board player point
+    | inside board point, Empty <- position board point = Just $ update (setPoint point $ Stone player) board
+    | otherwise = Nothing
 
 {-
 main :: IO ()

@@ -8,22 +8,17 @@ import Types
 
 -- Utils
 
-stepMoves :: Int -> Board -> [(Player, Point)] -> IO ()
-stepMoves size board ((p, c) : moves) = do
-    putStrLn $ "\ESC[H" ++ printBoard size board
+stepMoves :: Board -> [(Player, Point)] -> IO ()
+stepMoves board ((player, point) : moves) = do
+    putStrLn $ "\ESC[H" ++ printBoard board
     putStr "\ESC[0J"
     putStr "Press Enter for next move (or 'q' to quit): "
     hFlush stdout
     line <- getLine
+    when (line /= "q") $ maybe (putStrLn $ "Illegal move: " ++ show point) (`stepMoves` moves) (placeStone board player point)
 
-    when (line /= "q") $
-        maybe
-            (putStrLn $ "Illegal move: " ++ show c)
-            (\board' -> stepMoves size board' moves)
-            (placeStone size board p c)
-
-stepMoves size board [] = do
-    putStrLn $ "\ESC[H" ++ printBoard size board
+stepMoves board [] = do
+    putStrLn $ "\ESC[H" ++ printBoard board
     putStr "\ESC[0J"
     putStrLn "End of game"
 
@@ -38,7 +33,7 @@ main = do
         -- sgf = ";B[jj];W[kk];B[jj];W[jj]"
 
         handle :: ([(Player, Point)], String) -> IO ()
-        handle (coords, "") = stepMoves size emptyBoard coords
+        handle (coords, "") = stepMoves (Board size blank) coords
         handle (_, rest)    = putStrLn $ "Unparsed input: " ++ rest
     maybe (putStrLn "Invalid SGF") handle $ parse parseGame sgf
 
