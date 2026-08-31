@@ -1,7 +1,8 @@
 module Board where
 
-import Data.Array
 import Data.List (intercalate)
+import Data.Bool (bool)
+import Control.Applicative (liftA2, liftA3)
 import Control.Monad (ap, join)
 
 import Types
@@ -10,7 +11,7 @@ data Position
     = First
     | Middle
     | Last
-    deriving (Show, Eq, Ord, Enum, Ix)
+    deriving (Show, Eq, Enum)
 
 type Location = (Position, Position)
 
@@ -24,7 +25,7 @@ data Intersection
     | Stone Player Marking
     deriving (Show, Eq)
 
-type Board = Array Coord Intersection
+type Board = Coord -> Intersection
 
 data Reset
     = None
@@ -36,9 +37,6 @@ data Reset
 
 dup :: a -> (a, a)
 dup = join (,)
-
-extends :: a -> a -> ((a, a), (a, a))
-extends x y = (dup x, dup y)
 
 wrap :: String -> String -> String -> String
 wrap pre suf = (pre ++) . (++ suf)
@@ -84,35 +82,33 @@ getLoc size (x, y) = (loc y, loc x)
         | n == size = Last
         | otherwise = Middle
 
-emptyBoard :: Int -> Board -- Creates an empty board
-emptyBoard size = array extents $ map set $ range extents
-  where
-    extents = extends 1 size
-    stars   = hoshi size
+points :: Int -> [Coord] -- Gets array of points
+points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
 
-    set :: Coord -> (Coord, Intersection)
-    set pos = (pos, Empty marking)
-      where
-        marking :: Marking
-        marking
-            | pos `elem` stars = Star
-            | otherwise        = Blank
+inside :: Int -> Coord -> Bool -- Checks if a point is inside a board
+inside size (x, y) = all (liftA2 (&&) (1 <=) (<= size)) [x, y]
+
+emptyBoard :: Int -> Board -- Defines an empty board
+emptyBoard size = Empty . bool Blank Star . (`elem` hoshi size)
 
 -- For printing an established board
 
-dim :: Board -> Int -- Get dimension of board
-dim = fst . snd . bounds
+setIntersection :: Coord -> Intersection -> Board -> Board -- Give a point on the board a mark
+setIntersection target mark board = liftA3 bool board (const mark) (target ==)
 
-printIntersection :: Int -> Coord -> Intersection -> String -- Get a string representing an intersection
+printIntersection :: Int -> Coord -> Intersection -> String
 printIntersection size pos intersection = case intersection of
-    Empty Star -> "*"
-    Empty Blank -> listArray (extends First Last) glyphs ! getLoc size pos
+    Empty Star  -> "*"
+    Empty Blank -> glyph $ getLoc size pos
 
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\x25CF"
     Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\x25CF"
   where
-    glyphs :: [String]
-    glyphs = ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"]
+    glyphs :: [[String]]
+    glyphs = [["\x250C", "\x252C", "\x2510"], ["\x251C", "\x253C", "\x2524"], ["\x2514", "\x2534", "\x2518"]]
+
+    glyph :: Location -> String
+    glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
 
 {-
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
@@ -123,29 +119,29 @@ printIntersection size pos intersection = case intersection of
     Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
 -}
 
-row :: Board -> Int -> [(Coord, Intersection)]
-row board y = map (ap (,) (board !)) ((, y) <$> [1 .. dim board])
+row :: Int -> Board -> Int -> [(Coord, Intersection)]
+row size board y = map (ap (,) board) $ (, y) <$> [1 .. size]
 
-printBoard :: Board -> String
-printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. dim board]
+printBoard :: Int -> Board -> String
+printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . render . row size board) [1 .. size]
   where
-    hide :: String -> String
+    hide :: String -> String -- Put in main?
     hide = wrap "\ESC[?25l" "\ESC[?25h"
 
     style :: String -> String
     style = colour Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
     render :: [(Coord, Intersection)] -> [String]
-    render = map $ uncurry $ printIntersection $ dim board
+    render = map $ uncurry $ printIntersection size
 
 -- Placing a stone
 
 -- Maybe combine nothing cases?
-placeStone :: Board -> Player -> Coord -> Maybe Board
-placeStone board player pos
-    | not $ inRange (bounds board) pos = Nothing
-    | Empty mark <- board ! pos        = Just $ board // [(pos, Stone player mark)]
-    | otherwise                        = Nothing
+placeStone :: Int -> Board -> Player -> Coord -> Maybe Board
+placeStone size board player pos
+    | not $ inside size pos   = Nothing
+    | Empty mark <- board pos = Just $ setIntersection pos (Stone player mark) board
+    | otherwise               = Nothing
 
 {-
 main :: IO ()
