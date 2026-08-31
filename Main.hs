@@ -3,6 +3,7 @@ import System.IO (hFlush, stdout)
 
 import Board
 import Parser
+import Rules
 import Types
 
 -- Utils
@@ -40,3 +41,17 @@ main = do
         handle (coords, "") = stepMoves size emptyBoard coords
         handle (_, rest)    = putStrLn $ "Unparsed input: " ++ rest
     maybe (putStrLn "Invalid SGF") handle $ parse parseGame sgf
+
+{-
+testBoard :: Board
+testBoard p
+    | p `elem` [(2,2), (2,3), (3,3)] = Stone Black
+    | p == (5,5)                     = Stone White
+    | otherwise                      = Empty
+
+main :: IO ()
+main = do
+    print $ string 5 testBoard (2,2)
+    print $ string 5 testBoard (5,5)
+    print $ string 5 testBoard (1,1)
+-}

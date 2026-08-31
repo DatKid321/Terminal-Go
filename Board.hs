@@ -6,21 +6,15 @@ import Control.Applicative (liftA2, liftA3)
 import Control.Monad (ap, join)
 
 import Types
+import Rules
 
-data Position
+data Edge
     = First
     | Middle
     | Last
     deriving (Show, Eq, Enum)
 
-type Location = (Position, Position)
-
-data Colour
-    = Empty
-    | Stone Player
-    deriving (Show, Eq)
-
-type Board = Point -> Colour
+type Location = (Edge, Edge)
 
 data Reset
     = None
@@ -73,7 +67,7 @@ hoshi size = liftA2 (,) edge edge ++ [tup 2 mid | odd size]
 getLoc :: Int -> Point -> Location -- Gets location of point (corner, side, centre)
 getLoc size (x, y) = (loc y, loc x)
   where
-    loc :: Int -> Position
+    loc :: Int -> Edge
     loc n
         | n == 1    = First
         | n == size = Last
@@ -81,9 +75,6 @@ getLoc size (x, y) = (loc y, loc x)
 
 points :: Int -> [Point] -- Gets array of points
 points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
-
-inside :: Int -> Point -> Bool -- Checks if a point is inside a board
-inside size (x, y) = all (liftA2 (&&) (1 <=) (<= size)) [x, y]
 
 emptyBoard :: Board -- Defines an empty board
 emptyBoard = const Empty

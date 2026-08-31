@@ -1,7 +1,7 @@
 module Parser where
 
 import Control.Applicative (Alternative (..))
-import Data.Char (isSpace, ord)
+import Data.Char (isSpace)
 import Data.List (uncons, find, elemIndex)
 import Data.Maybe (maybeToList, fromJust)
 import Control.Monad.Trans.State (StateT(..), runStateT)
