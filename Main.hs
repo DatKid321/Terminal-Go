@@ -7,7 +7,7 @@ import Types
 
 -- Utils
 
-stepMoves :: Int -> Board -> [(Player, Coord)] -> IO ()
+stepMoves :: Int -> Board -> [(Player, Point)] -> IO ()
 stepMoves size board ((p, c) : moves) = do
     putStrLn $ "\ESC[H" ++ printBoard size board
     putStr "\ESC[0J"
@@ -37,7 +37,7 @@ main = do
         sgf = ";B[jj];W[kk];B[ll];W[jk]"
         -- sgf = ";B[jj];W[kk];B[jj];W[jj]"
 
-        handle :: ([(Player, Coord)], String) -> IO ()
+        handle :: ([(Player, Point)], String) -> IO ()
         handle (coords, "") = stepMoves size newBoard coords
         handle (_, rest)    = putStrLn $ "Unparsed input: " ++ rest
     maybe (putStrLn "Invalid SGF") handle $ parse parseGame sgf

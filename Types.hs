@@ -5,4 +5,4 @@ data Player
     | White
     deriving (Show, Eq)
 
-type Coord = (Int, Int)
+type Point = (Int, Int)

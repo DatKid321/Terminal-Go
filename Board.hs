@@ -25,7 +25,7 @@ data Intersection
     | Stone Player Marking
     deriving (Show, Eq)
 
-type Board = Coord -> Intersection
+type Board = Point -> Intersection
 
 data Reset
     = None
@@ -55,7 +55,7 @@ colour res bg fg str
 
 -- For creating an empty board
 
-hoshi :: Int -> [Coord] -- Gets star points for a board size
+hoshi :: Int -> [Point] -- Gets star points for a board size
 hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
   where
     mid :: Int
@@ -73,7 +73,7 @@ hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
     edge :: [Int]
     edge = corners ++ sides
 
-getLoc :: Int -> Coord -> Location -- Gets location of coord (corner, side, centre)
+getLoc :: Int -> Point -> Location -- Gets location of point (corner, side, centre)
 getLoc size (x, y) = (loc y, loc x)
   where
     loc :: Int -> Position
@@ -82,10 +82,10 @@ getLoc size (x, y) = (loc y, loc x)
         | n == size = Last
         | otherwise = Middle
 
-points :: Int -> [Coord] -- Gets array of points
+points :: Int -> [Point] -- Gets array of points
 points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
 
-inside :: Int -> Coord -> Bool -- Checks if a point is inside a board
+inside :: Int -> Point -> Bool -- Checks if a point is inside a board
 inside size (x, y) = all (liftA2 (&&) (1 <=) (<= size)) [x, y]
 
 emptyBoard :: Int -> Board -- Defines an empty board
@@ -93,10 +93,10 @@ emptyBoard size = Empty . bool Blank Star . (`elem` hoshi size)
 
 -- For printing an established board
 
-setIntersection :: Coord -> Intersection -> Board -> Board -- Give a point on the board a mark
+setIntersection :: Point -> Intersection -> Board -> Board -- Give a point on the board a mark
 setIntersection target mark board = liftA3 bool board (const mark) (target ==)
 
-printIntersection :: Int -> Coord -> Intersection -> String
+printIntersection :: Int -> Point -> Intersection -> String
 printIntersection size pos intersection = case intersection of
     Empty Star  -> "*"
     Empty Blank -> glyph $ getLoc size pos
@@ -119,7 +119,7 @@ printIntersection size pos intersection = case intersection of
     Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
 -}
 
-row :: Int -> Board -> Int -> [(Coord, Intersection)]
+row :: Int -> Board -> Int -> [(Point, Intersection)]
 row size board y = map (ap (,) board) $ (, y) <$> [1 .. size]
 
 printBoard :: Int -> Board -> String
@@ -131,13 +131,13 @@ printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . ren
     style :: String -> String
     style = colour Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
-    render :: [(Coord, Intersection)] -> [String]
+    render :: [(Point, Intersection)] -> [String]
     render = map $ uncurry $ printIntersection size
 
 -- Placing a stone
 
 -- Maybe combine nothing cases?
-placeStone :: Int -> Board -> Player -> Coord -> Maybe Board
+placeStone :: Int -> Board -> Player -> Point -> Maybe Board
 placeStone size board player pos
     | not $ inside size pos   = Nothing
     | Empty mark <- board pos = Just $ setIntersection pos (Stone player mark) board

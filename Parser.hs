@@ -41,14 +41,14 @@ charTok = tok . is
 parseColour :: Parser Player
 parseColour = (is 'B' $> Black) <|> (is 'W' $> White)
 
-parseCoords :: Parser Coord
+parseCoords :: Parser Point
 parseCoords = (,) <$> (charTok '[' *> alphaIndex) <*> (alphaIndex <* charTok ']')
   where
     alphaIndex :: Parser Int
     alphaIndex = (+1) . fromJust . (`elemIndex` letters) <$> alpha
 
-parseMove :: Parser (Player, Coord)
+parseMove :: Parser (Player, Point)
 parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseCoords
 
-parseGame :: Parser [(Player, Coord)]
+parseGame :: Parser [(Player, Point)]
 parseGame = many parseMove
