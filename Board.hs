@@ -140,11 +140,12 @@ printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render .
 
 -- Placing a stone
 
+-- Maybe combine nothing cases?
 placeStone :: Board -> Player -> Coord -> Maybe Board
 placeStone board player pos
     | not $ inRange (bounds board) pos = Nothing
-    | Empty mark <- board ! pos = Just $ board // [(pos, Stone player mark)]
-    | otherwise = Nothing
+    | Empty mark <- board ! pos        = Just $ board // [(pos, Stone player mark)]
+    | otherwise                        = Nothing
 
 {-
 main :: IO ()
