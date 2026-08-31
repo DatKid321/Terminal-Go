@@ -2,8 +2,8 @@ module Parser where
 
 import Control.Applicative (Alternative (..))
 import Data.Char (isAlpha, isSpace, ord)
-import Data.List (uncons, find)
-import Data.Maybe (maybeToList)
+import Data.List (uncons, find, elemIndex)
+import Data.Maybe (maybeToList, fromJust)
 import Control.Monad.Trans.State (StateT(..), runStateT)
 import Data.Functor (($>))
 
@@ -23,8 +23,11 @@ is = satisfy . (==)
 space :: Parser Char
 space = satisfy isSpace
 
+letters :: String
+letters = ['a' .. 'z'] ++ ['A' .. 'Z']
+
 alpha :: Parser Char
-alpha = satisfy isAlpha
+alpha = satisfy (`elem` letters)
 
 spaces :: Parser String
 spaces = many space
@@ -41,7 +44,8 @@ parseColour = (is 'B' $> Black) <|> (is 'W' $> White)
 parseCoords :: Parser Coord
 parseCoords = (,) <$> (charTok '[' *> alphaIndex) <*> (alphaIndex <* charTok ']')
   where
-    alphaIndex = fmap (subtract 96 . ord) alpha
+    alphaIndex :: Parser Int
+    alphaIndex = (+1) . fromJust . (`elemIndex` letters) <$> alpha
 
 parseMove :: Parser (Player, Coord)
 parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseCoords

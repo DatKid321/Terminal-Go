@@ -106,13 +106,13 @@ dim = fst . snd . bounds
 printIntersection :: Int -> Coord -> Intersection -> String -- Get a string representing an intersection
 printIntersection size pos intersection = case intersection of
     Empty Star -> "*"
-    Empty Blank -> glyphs ! getLoc size pos
+    Empty Blank -> listArray (extends First Last) glyphs ! getLoc size pos
 
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\x25CF"
     Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\x25CF"
   where
-    glyphs :: Array Location String
-    glyphs = listArray (extends First Last) ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"]
+    glyphs :: [String]
+    glyphs = ["\x250C", "\x252C", "\x2510", "\x251C", "\x253C", "\x2524", "\x2514", "\x2534", "\x2518"]
 
 {-
     Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
@@ -127,8 +127,11 @@ row :: Board -> Int -> [(Coord, Intersection)]
 row board y = map (ap (,) (board !)) ((, y) <$> [1 .. dim board])
 
 printBoard :: Board -> String
-printBoard board = wrap "\ESC[?25l" "\ESC[?25h" . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. dim board]
+printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. dim board]
   where
+    hide :: String -> String
+    hide = wrap "\ESC[?25l" "\ESC[?25h"
+
     style :: String -> String
     style = colour Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
