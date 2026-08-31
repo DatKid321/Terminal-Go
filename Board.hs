@@ -15,17 +15,12 @@ data Position
 
 type Location = (Position, Position)
 
-data Marking
-    = Blank
-    | Star
+data Colour
+    = Empty
+    | Stone Player
     deriving (Show, Eq)
 
-data Intersection
-    = Empty Marking
-    | Stone Player Marking
-    deriving (Show, Eq)
-
-type Board = Point -> Intersection
+type Board = Point -> Colour
 
 data Reset
     = None
@@ -33,30 +28,32 @@ data Reset
     | Full
     deriving (Show, Eq)
 
+type RGB = (Int, Int, Int)
+
 -- Helpers
 
-dup :: a -> (a, a)
-dup = join (,)
-
-wrap :: String -> String -> String -> String
+wrap :: String -> String -> String -> String -- Add a prefix and suffix to a string
 wrap pre suf = (pre ++) . (++ suf)
 
-colour :: Reset -> Maybe (Int, Int, Int) -> Maybe (Int, Int, Int) -> String -> String -- Colours a string
-colour res bg fg str
+tup :: (Show a, Read t) => Int -> a -> t -- Create tuple with value repeated n times (just kinda fun)
+tup n = read . wrap "(" ")" . intercalate "," . replicate n . show
+
+ansi :: Reset -> Maybe RGB -> Maybe RGB -> String -> String -- Colours a string
+ansi res bg fg str
     | res == None  = ansiString                               -- Keeps colour
     | res == Store = "\ESC7" ++ ansiString ++ "\ESC8\ESC[1C"  -- Resets colour to previous
     | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
   where
-    ansi :: Int -> Maybe (Int, Int, Int) -> String
-    ansi n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
+    ansiColour :: Int -> Maybe RGB -> String
+    ansiColour n = maybe "" (\(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m")
 
     ansiString :: String
-    ansiString = ansi 48 bg ++ ansi 38 fg ++ str
+    ansiString = ansiColour 48 bg ++ ansiColour 38 fg ++ str
 
 -- For creating an empty board
 
 hoshi :: Int -> [Point] -- Gets star points for a board size
-hoshi size = liftA2 (,) edge edge ++ [dup mid | odd size]
+hoshi size = liftA2 (,) edge edge ++ [tup 2 mid | odd size]
   where
     mid :: Int
     mid = size `div` 2 + 1
@@ -88,21 +85,18 @@ points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
 inside :: Int -> Point -> Bool -- Checks if a point is inside a board
 inside size (x, y) = all (liftA2 (&&) (1 <=) (<= size)) [x, y]
 
-emptyBoard :: Int -> Board -- Defines an empty board
-emptyBoard size = Empty . bool Blank Star . (`elem` hoshi size)
+emptyBoard :: Board -- Defines an empty board
+emptyBoard = const Empty
 
 -- For printing an established board
 
-setIntersection :: Point -> Intersection -> Board -> Board -- Give a point on the board a mark
+setIntersection :: Point -> Colour -> Board -> Board -- Give a point on the board a mark
 setIntersection target mark board = liftA3 bool board (const mark) (target ==)
 
-printIntersection :: Int -> Point -> Intersection -> String
-printIntersection size pos intersection = case intersection of
-    Empty Star  -> "*"
-    Empty Blank -> glyph $ getLoc size pos
-
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\x25CF"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\x25CF"
+printIntersection :: Int -> Point -> Colour -> String
+printIntersection size pos colour = case colour of
+    Empty        -> bool (glyph $ getLoc size pos) "*" $ pos `elem` hoshi size
+    Stone player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
   where
     glyphs :: [[String]]
     glyphs = [["\x250C", "\x252C", "\x2510"], ["\x251C", "\x253C", "\x2524"], ["\x2514", "\x2534", "\x2518"]]
@@ -110,16 +104,7 @@ printIntersection size pos intersection = case intersection of
     glyph :: Location -> String
     glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
 
-{-
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
-    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x030D\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
-    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
--}
-
-row :: Int -> Board -> Int -> [(Point, Intersection)]
+row :: Int -> Board -> Int -> [(Point, Colour)]
 row size board y = map (ap (,) board) $ (, y) <$> [1 .. size]
 
 printBoard :: Int -> Board -> String
@@ -129,19 +114,17 @@ printBoard size board = hide . unlines $ map (style . intercalate "\x2500" . ren
     hide = wrap "\ESC[?25l" "\ESC[?25h"
 
     style :: String -> String
-    style = colour Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
+    style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
-    render :: [(Point, Intersection)] -> [String]
+    render :: [(Point, Colour)] -> [String]
     render = map $ uncurry $ printIntersection size
 
 -- Placing a stone
 
--- Maybe combine nothing cases?
 placeStone :: Int -> Board -> Player -> Point -> Maybe Board
 placeStone size board player pos
-    | not $ inside size pos   = Nothing
-    | Empty mark <- board pos = Just $ setIntersection pos (Stone player mark) board
-    | otherwise               = Nothing
+    | inside size pos, Empty <- board pos = Just $ setIntersection pos (Stone player) board
+    | otherwise                           = Nothing
 
 {-
 main :: IO ()
@@ -188,4 +171,13 @@ Next steps:
 Arrow key input - Rather than typing coords, interactive cursor
 Letter coordinates - letters, numbers, characters
 
+-}
+
+{-
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\ESC[22m"
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
+    Stone Black _ -> colour Store Nothing (Just (0, 0, 0)) "\ESC[1m\x25CF\x030D\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x0329\x030D\ESC[22m"
+    Stone White _ -> colour Store Nothing (Just (255, 255, 255)) "\ESC[1m\x25CF\x030D\ESC[22m"
 -}
