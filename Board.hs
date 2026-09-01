@@ -73,9 +73,6 @@ getLoc size (x, y) = (loc y, loc x)
         | n == size = Last
         | otherwise = Middle
 
-points :: Int -> [Point] -- Gets array of points
-points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
-
 -- For printing an established board
 
 printPoint :: Board -> Point -> Colour -> String
