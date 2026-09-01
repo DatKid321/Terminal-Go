@@ -75,9 +75,9 @@ getLoc size (x, y) = (loc y, loc x)
 
 -- For printing an established board
 
-printPoint :: Board -> Point -> Colour -> String
-printPoint board pos colour = case colour of
-    Empty        -> bool (glyph $ getLoc (size board) pos) "*" $ pos `elem` hoshi (size board)
+printPoint :: Rules -> Point -> Colour -> String
+printPoint rules pos colour = case colour of
+    Empty        -> bool (glyph $ getLoc (size rules) pos) "*" $ pos `elem` hoshi (size rules)
     Stone player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
   where
     glyphs :: [[String]]
@@ -86,11 +86,11 @@ printPoint board pos colour = case colour of
     glyph :: Location -> String
     glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
 
-row :: Board -> Int -> [(Point, Colour)]
-row board y = map (ap (,) $ position board) $ (, y) <$> [1 .. size board]
+row :: Rules -> Position -> Int -> [(Point, Colour)]
+row rules pos y = map (ap (,) pos) $ (, y) <$> [1 .. size rules]
 
-printBoard :: Board -> String
-printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render . row board) [1 .. size board]
+printBoard :: Rules -> Position -> String
+printBoard rules pos = hide . unlines $ map (style . intercalate "\x2500" . render . row rules pos) [1 .. size rules]
   where
     hide :: String -> String -- Put in main?
     hide = wrap "\ESC[?25l" "\ESC[?25h"
@@ -99,14 +99,7 @@ printBoard board = hide . unlines $ map (style . intercalate "\x2500" . render .
     style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 
     render :: [(Point, Colour)] -> [String]
-    render = map $ uncurry $ printPoint board
-
--- Placing a stone
-
-placeStone :: Board -> Player -> Point -> Maybe Board
-placeStone board player point
-    | inside board point, Empty <- position board point = Just $ update (setPoint point $ Stone player) board
-    | otherwise = Nothing
+    render = map $ uncurry $ printPoint rules
 
 {-
 main :: IO ()

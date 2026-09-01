@@ -15,62 +15,65 @@ import qualified Data.Set as Set
 
 import Types
 
+-- Functions taking only rules first are Geometric, 
+-- Functions taking 
+
 blank :: Position -- Defines a blank position
 blank = const Empty
 
-points :: Int -> [Point] -- Gets array of points
-points size = liftA2 (flip (,)) [1 .. size] [1 .. size]
+points :: Rules -> [Point] -- Gets array of points
+points rules = liftA2 (flip (,)) [1 .. size rules] [1 .. size rules]
 
 setPoint :: Point -> Colour -> Position -> Position -- Mark a position
-setPoint target mark board = liftA3 bool board (const mark) (target ==)
+setPoint target mark pos = liftA3 bool pos (const mark) (target ==)
 
-inside :: Board -> Point -> Bool -- Checks if a point is inside a board
-inside board (x, y) = valid x && valid y
+inside :: Rules -> Point -> Bool -- Checks if a point is legal
+inside rules (x, y) = valid x && valid y
   where
     valid :: Int -> Bool
-    valid = liftM2 (&&) (1 <=) (<= size board)
+    valid = liftM2 (&&) (1 <=) (<= size rules)
 
-neighbours :: Board -> Point -> Set Point -- Get neighbours of a point
-neighbours board (x, y) = Set.filter (inside board) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+neighbours :: Rules -> Point -> Set Point -- Get neighbours of a point
+neighbours rules (x, y) = Set.filter (inside rules) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 
-string :: Board -> Point -> Group -- Get connected stones via flood fill
-string board point = unions $ expand [point] []
+string :: Rules -> Position -> Point -> Group -- Get connected region containing point
+string rules pos point = unions $ expand [point] []
   where
-    same :: Point -> Bool -- Check if 
-    same cand = position board point == position board cand
+    same :: Point -> Bool -- Check if point has same colour
+    same cand = pos point == pos cand
 
-    expand :: Set Point -> Set Point -> [Set Point] -- Increase flood by a layer
+    expand :: Set Point -> Set Point -> [Set Point] -- Expand region by a layer
     expand curr prev = curr : bool (expand next curr) [] (null next)
       where
-        next :: Set Point
-        next = Set.filter same (foldMap (neighbours board) curr) `difference` prev
+        next :: Set Point -- Next unvisited layer
+        next = Set.filter same (foldMap (neighbours rules) curr) `difference` prev
 
-liberties :: Board -> Group -> Set Point -- Identify liberties of a group
-liberties board = Set.filter vacant . foldMap (neighbours board)
+liberties :: Rules -> Position -> Group -> Set Point -- Identify liberties of a group
+liberties rules pos = Set.filter vacant . foldMap (neighbours rules)
   where
     vacant :: Point -> Bool
-    vacant = liftM2 (==) (position board) blank
+    vacant = liftM2 (==) pos blank
 
-clear :: Board -> Set Point -> Board -- Clear selected groups from board
-clear board points = update remove board
+clear :: Rules -> Set Point -> Position -> Position -- Clear selected groups from board
+clear rules points pos = liftA3 bool pos blank (`member` captured)
   where
-    remove :: Position -> Position
-    remove pos = liftA3 bool pos blank (`member` captured)
-
     groups :: Set Group
-    groups = Set.map (string board) points
+    groups = Set.map (string rules pos) points
 
     captured :: Set Point
-    captured = unions $ Set.filter (null . liberties board) groups
+    captured = unions $ Set.filter (null . liberties rules pos) groups
 
-move :: Board -> Player -> Point -> Board -- Execute a full turn
-move board player point = clear (clear placed opponents) [point]
+move :: Rules -> Player -> Point -> Position -> Position -- Execute a move
+move rules player point pos = clear rules [point] cleared
   where
-    placed :: Board -- Board with stone at desired point
-    placed = update (setPoint point $ Stone player) board
+    placed :: Position -- Position after placing stone
+    placed = setPoint point (Stone player) pos
 
-    opponents :: Set Point -- Get neighbouring enemy stones
-    opponents = Set.filter enemy $ neighbours placed point
+    opponents :: Set Point -- Adjacent enemy stones
+    opponents = Set.filter enemy $ neighbours rules point
 
-    enemy :: Point -> Bool -- Identify enemy stones
-    enemy = (`notMember` [Empty, Stone player]) . position placed
+    enemy :: Point -> Bool -- Check point contains an enemy stone
+    enemy = (`notMember` [Empty, Stone player]) . placed
+
+    cleared :: Position -- Position after removing enemy groups
+    cleared = clear rules opponents placed

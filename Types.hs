@@ -19,10 +19,7 @@ data Colour
 
 type Position = Point -> Colour
 
-data Board = Board
-    { size     :: Int
-    , position :: Position
+data Rules = Rules
+    { size :: Int,
+      more :: ()
     }
-
-update :: (Position -> Position) -> Board -> Board
-update f board = board { position = f $ position board }
