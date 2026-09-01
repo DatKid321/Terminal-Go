@@ -90,11 +90,8 @@ row :: Rules -> Position -> Int -> [(Point, Colour)]
 row rules pos y = map (ap (,) pos) $ (, y) <$> [1 .. size rules]
 
 printBoard :: Rules -> Position -> String
-printBoard rules pos = hide . unlines $ map (style . intercalate "\x2500" . render . row rules pos) [1 .. size rules]
+printBoard rules pos = unlines $ map (style . intercalate "\x2500" . render . row rules pos) [1 .. size rules]
   where
-    hide :: String -> String -- Put in main?
-    hide = wrap "\ESC[?25l" "\ESC[?25h"
-
     style :: String -> String
     style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
 

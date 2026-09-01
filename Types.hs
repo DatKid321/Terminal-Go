@@ -17,9 +17,19 @@ data Colour
     | Stone Player
     deriving (Show, Eq, Ord)
 
+type Colouring = [Colour]
+
 type Position = Point -> Colour
 
-data Rules = Rules
+type History = [Position]
+
+data Illegal
+    = Occupied
+    | Superko
+    | Suicide
+    deriving (Show, Eq)
+
+data Rules = Rules -- Chinese/Japanese preset
     { size :: Int,
       more :: ()
     }
