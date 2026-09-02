@@ -6,11 +6,12 @@ module Rules where
 -- import Prelude hiding (filter, map)
 
 import Data.Bool (bool)
-import Control.Monad (liftM2)
+import Data.Function (on)
+import Data.Maybe (isJust, isNothing)
 import Control.Applicative (liftA2, liftA3)
 
 -- Import set specific functions
-import Data.Set (Set, unions, difference, member, notMember)
+import Data.Set (Set, unions, difference, member, singleton)
 import qualified Data.Set as Set
 
 import Types
@@ -21,12 +22,12 @@ import Types
 -- Functions taking position to position are Transformative, position to position is natural
 
 blank :: Position -- Defines a blank position
-blank = const Empty
+blank = const Nothing
 
 points :: Rules -> [Point] -- Gets array of points
-points rules = liftA2 (flip (,)) [1 .. size rules] [1 .. size rules]
+points rules = liftA2 (,) [1 .. size rules] [1 .. size rules]
 
-colouring :: Rules -> Position -> Colouring
+colouring :: Rules -> Position -> Colouring -- Get a colouring of the board
 colouring rules pos = map pos $ points rules
 
 setPoint :: Point -> Colour -> Position -> Position -- Mark a position
@@ -36,7 +37,7 @@ inside :: Rules -> Point -> Bool -- Check point lies on board
 inside rules (x, y) = valid x && valid y
   where
     valid :: Int -> Bool
-    valid = liftM2 (&&) (1 <=) (<= size rules)
+    valid = liftA2 (&&) (1 <=) (<= size rules)
 
 neighbours :: Rules -> Point -> Set Point -- Get neighbours of a point
 neighbours rules (x, y) = Set.filter (inside rules) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
@@ -45,7 +46,7 @@ string :: Rules -> Position -> Point -> Group -- Get connected region containing
 string rules pos point = unions $ expand [point] []
   where
     same :: Point -> Bool -- Check if point has same colour
-    same cand = pos point == pos cand
+    same = on (==) pos point
 
     expand :: Set Point -> Set Point -> [Set Point] -- Expand region by a layer
     expand curr prev = curr : bool (expand next curr) [] (null next)
@@ -54,10 +55,7 @@ string rules pos point = unions $ expand [point] []
         next = Set.filter same (foldMap (neighbours rules) curr) `difference` prev
 
 liberties :: Rules -> Position -> Group -> Set Point -- Get empty points adjacent to a group
-liberties rules pos = Set.filter vacant . foldMap (neighbours rules)
-  where
-    vacant :: Point -> Bool -- Check whether a point is empty
-    vacant = liftM2 (==) pos blank
+liberties rules pos = Set.filter (isNothing . pos) . foldMap (neighbours rules)
 
 clear :: Rules -> Set Point -> Position -> Position -- Remove groups with no liberties
 clear rules points pos = liftA3 bool pos blank (`member` captured)
@@ -68,29 +66,44 @@ clear rules points pos = liftA3 bool pos blank (`member` captured)
     captured :: Set Point -- Points in groups with no liberties
     captured = unions $ Set.filter (null . liberties rules pos) groups
 
-move :: Rules -> Player -> Point -> Position -> Position -- Execute a move
+move :: Rules -> Player -> Point -> Position -> Position -- Place a stone
 move rules player point pos = clear rules [point] cleared
   where
     placed :: Position -- Position after placing stone
-    placed = setPoint point (Stone player) pos
+    placed = setPoint point (Just player) pos
+
+    enemy :: Point -> Bool -- Check point contains an enemy stone
+    enemy = maybe False (/= player) . placed
 
     opponents :: Set Point -- Adjacent enemy stones
     opponents = Set.filter enemy $ neighbours rules point
 
-    enemy :: Point -> Bool -- Check point contains an enemy stone
-    enemy = (`notMember` [Empty, Stone player]) . placed
-
     cleared :: Position -- Position after removing enemy groups
     cleared = clear rules opponents placed
 
-play :: Rules -> Player -> Point -> History -> Either Illegal History
-play rules player point past@(pos : _)
-    | pos point /= Empty                     = Left Occupied
-    | colouring rules next `elem` colourings = Left Superko
-    | otherwise                              = Right $ next : past
+play :: Rules -> Player -> Turn -> History -> Either Illegal History -- Place a stone if legal
+play _     _      Pass         past@(pos : _) = Right $ pos : past -- Record pass
+play rules player (Move point) past@(pos : _)
+    | not $ inside rules point                = Left Outside -- Point is on board
+    | isJust $ pos point                      = Left Occupied -- Point contains stone
+    | colouring rules next `elem` colourings  = Left Superko -- Position has been repeated
+    | otherwise                               = Right $ next : past -- Position is legal
   where
-    next :: Position
+    next :: Position -- Position after move
     next = move rules player point pos
 
-    colourings :: [Colouring]
+    colourings :: [Colouring] -- Previous positions
     colourings = map (colouring rules) past
+
+ended :: Rules -> History -> Bool
+ended rules (pos : prev : _) = on (==) (colouring rules) pos prev
+ended _     _                = False
+
+score :: Rules -> Position -> Player -> Int
+score rules pos player = length $ filter owned $ points rules
+  where
+    owned :: Point -> Bool
+    owned point = maybe (owners point == [player]) (== player) $ pos point
+
+    owners :: Point -> Set Player
+    owners = foldMap (foldMap singleton . pos) . foldMap (neighbours rules) . string rules pos

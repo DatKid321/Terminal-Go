@@ -12,10 +12,7 @@ type Point = (Int, Int)
 
 type Group = Set Point
 
-data Colour
-    = Empty
-    | Stone Player
-    deriving (Show, Eq, Ord)
+type Colour = Maybe Player
 
 type Colouring = [Colour]
 
@@ -23,13 +20,19 @@ type Position = Point -> Colour
 
 type History = [Position]
 
+data Turn
+    = Pass
+    | Move Point
+    deriving (Show, Eq)
+
 data Illegal
-    = Occupied
+    = Outside
+    | Occupied
     | Superko
     | Suicide
     deriving (Show, Eq)
 
-data Rules = Rules -- Chinese/Japanese preset
+data Rules = Rules -- Chinese/Japanese/ect preset
     { size :: Int,
       more :: ()
     }

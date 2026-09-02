@@ -4,6 +4,7 @@ import Control.Applicative (Alternative (..))
 import Data.Char (isSpace)
 import Data.List (uncons, find, elemIndex)
 import Data.Maybe (maybeToList, fromJust)
+import Control.Monad (mfilter)
 import Control.Monad.Trans.State (StateT(..), runStateT)
 import Data.Functor (($>))
 
@@ -15,7 +16,7 @@ parse :: Parser a -> String -> Maybe (a, String)
 parse = runStateT
 
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = StateT $ find (p . fst) . maybeToList . uncons
+satisfy p = StateT $ mfilter (p . fst) . uncons
 
 is :: Char -> Parser Char
 is = satisfy . (==)
@@ -47,8 +48,11 @@ parseCoords = (,) <$> (charTok '[' *> alphaIndex) <*> (alphaIndex <* charTok ']'
     alphaIndex :: Parser Int
     alphaIndex = (+1) . fromJust . (`elemIndex` letters) <$> alpha
 
-parseMove :: Parser (Player, Point)
-parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseCoords
+parseTurn :: Parser Turn
+parseTurn = (charTok '[' *> charTok ']' $> Pass) <|> (Move <$> parseCoords)
 
-parseGame :: Parser [(Player, Point)]
-parseGame = many parseMove
+parseMove :: Parser (Player, Turn)
+parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseTurn
+
+parseGame :: Parser [(Player, Turn)]
+parseGame = charTok '(' *> many parseMove <* charTok ')'

@@ -77,8 +77,8 @@ getLoc size (x, y) = (loc y, loc x)
 
 printPoint :: Rules -> Point -> Colour -> String
 printPoint rules pos colour = case colour of
-    Empty        -> bool (glyph $ getLoc (size rules) pos) "*" $ pos `elem` hoshi (size rules)
-    Stone player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
+    Nothing     -> bool (glyph $ getLoc (size rules) pos) "*" $ pos `elem` hoshi (size rules)
+    Just player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
   where
     glyphs :: [[String]]
     glyphs = [["\x250C", "\x252C", "\x2510"], ["\x251C", "\x253C", "\x2524"], ["\x2514", "\x2534", "\x2518"]]
