@@ -20,7 +20,7 @@ data Tree = Tree [Node] [Tree]
 
 type Collection = [Tree]
 
-type Parser a = StateT String Maybe a
+type Parser = StateT String Maybe
 
 parse :: Parser a -> String -> Maybe (a, String)
 parse = runStateT

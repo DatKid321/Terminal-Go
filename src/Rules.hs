@@ -96,6 +96,8 @@ play rules player (Move point) past@(pos : _)
     next = move rules player point pos
 
 {-
+Add replay? For SGFs that do not nessecarily follow the rules
+
 ended :: History -> Bool
 ended (pos : prev : before : _) = pos == prev && prev = before
 ended _                         = False

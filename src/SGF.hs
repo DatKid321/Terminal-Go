@@ -1,6 +1,7 @@
 module SGF where
 
 import Data.Function (on)
+import Data.Bool (bool)
 import Data.Char (ord)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Text.Read (readMaybe)
@@ -36,11 +37,19 @@ decodeTree (Tree nodes trees) = concatMap decodeNode nodes ++ maybe [] decodeTre
 
 -- Property decoding
 
-decodeSize :: [Property] -> Int
-decodeSize = fromMaybe 19 . listToMaybe . mapMaybe size
+decodeValue :: Read a => Ident -> a -> [Property] -> a
+decodeValue ident preset = fromMaybe preset . listToMaybe . mapMaybe value
   where
-    size (Property "SZ" [value]) = readMaybe value
-    size _                       = Nothing
+    value :: Read a => Property -> Maybe a
+    value (Property name [text])
+        | name == ident = readMaybe text
+    value _             = Nothing
+
+decodeSize :: [Property] -> Int
+decodeSize = decodeValue "SZ" 19
+
+decodeKomi :: [Property] -> Rational
+decodeKomi = decodeValue "KM" 0
 
 decodeSetup :: [Property] -> Position -> Position
 decodeSetup = flip $ foldr apply
@@ -57,7 +66,9 @@ decodeSetup = flip $ foldr apply
 -- Rules decoding
 
 decodeRules :: Tree -> Rules
-decodeRules tree = Rules
-    { size = decodeSize $ root tree
-    , more = ()
-    }
+decodeRules = rules . root
+  where
+    rules :: [Property] -> Rules
+    rules = Rules
+        <$> decodeSize 
+        <*> decodeKomi
