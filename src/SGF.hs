@@ -32,7 +32,7 @@ decodeNode :: Node -> [(Player, Turn)]
 decodeNode (Node properties) = mapMaybe decodeTurn properties
 
 decodeTree :: Tree -> [(Player, Turn)]
-decodeTree (Tree nodes _) = concatMap decodeNode nodes
+decodeTree (Tree nodes trees) = concatMap decodeNode nodes ++ maybe [] decodeTree (listToMaybe trees) -- Only follows first variation
 
 -- Property decoding
 

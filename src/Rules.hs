@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedLists #-}
-
 module Rules where
 
 -- If there are no lists, then
