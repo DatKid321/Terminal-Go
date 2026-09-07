@@ -1,5 +1,6 @@
-import Control.Monad (when)
+import Control.Monad (when, liftM3)
 import System.IO (hFlush, stdout)
+import Data.Bool (bool)
 
 import Board
 import Parser
@@ -19,10 +20,9 @@ draw rules pos message = do
     hFlush stdout
 
 finish :: Rules -> History -> IO ()
-finish rules (pos : _) = do
-    draw rules pos $
-        "Black: " ++ show (score rules pos Black) ++ "\n" ++
-        "White: " ++ show (score rules pos White) ++ "\n"
+finish rules (pos : _) = draw rules pos $
+    "Black: " ++ show (score rules pos Black) ++ "\n" ++
+    "White: " ++ show (score rules pos White) ++ "\n"
 finish _ [] = pure ()
 
 stepMoves :: Rules -> History -> [(Player, Turn)] -> IO ()
@@ -31,13 +31,14 @@ stepMoves rules history ((player, turn) : turns) = do
     input <- getLine
 
     when (input /= "q") $
-        if turn == Pass && ended history
-            then finish rules history
-            else
-                either
-                    (putStrLn . ("Illegal move: " ++) . show)
-                    (\history' -> stepMoves rules history' turns)
-                    (play rules player turn history)
+        either
+            (putStrLn . ("Illegal move: " ++) . show)
+            next
+            (play rules player turn history)
+  where
+    next :: History -> IO ()
+    next = liftM3 bool (flip (stepMoves rules) turns) (finish rules) ended
+
 stepMoves rules history [] =
     finish rules history
 

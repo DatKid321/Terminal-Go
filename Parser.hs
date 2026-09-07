@@ -1,34 +1,44 @@
 module Parser where
 
 import Control.Applicative (Alternative (..))
-import Data.Char (isSpace)
-import Data.List (uncons, elemIndex)
-import Data.Maybe (fromJust)
+import Data.Char (isSpace, isAsciiUpper)
+import Data.List (uncons)
 import Control.Monad (mfilter)
 import Control.Monad.Trans.State (StateT(..), runStateT)
-import Data.Functor (($>))
 
-import Types
+type Ident = String
+type Value = String
+
+data Property = Property Ident [Value]
+    deriving (Eq, Show)
+
+newtype Node = Node [Property]
+    deriving (Eq, Show)
+
+data Tree = Tree [Node] [Tree]
+    deriving (Eq, Show)
+
+type Collection = [Tree]
 
 type Parser a = StateT String Maybe a
 
 parse :: Parser a -> String -> Maybe (a, String)
 parse = runStateT
 
+item :: Parser Char
+item = StateT uncons
+
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = StateT $ mfilter (p . fst) . uncons
+satisfy = flip mfilter item
 
 is :: Char -> Parser Char
 is = satisfy . (==)
 
+isNot :: Char -> Parser Char
+isNot = satisfy . (/=)
+
 space :: Parser Char
 space = satisfy isSpace
-
-letters :: String
-letters = ['a' .. 'z'] ++ ['A' .. 'Z']
-
-alpha :: Parser Char
-alpha = satisfy (`elem` letters)
 
 spaces :: Parser String
 spaces = many space
@@ -39,20 +49,26 @@ tok = (<* spaces)
 charTok :: Char -> Parser Char
 charTok = tok . is
 
-parseColour :: Parser Player
-parseColour = (is 'B' $> Black) <|> (is 'W' $> White)
+escape :: Parser Char
+escape = is '\\' *> item
 
-parseCoords :: Parser Point
-parseCoords = (,) <$> (charTok '[' *> alphaIndex) <*> (alphaIndex <* charTok ']')
-  where
-    alphaIndex :: Parser Int
-    alphaIndex = (+1) . fromJust . (`elemIndex` letters) <$> alpha
+valueChar :: Parser Char
+valueChar = escape <|> isNot ']'
 
-parseTurn :: Parser Turn
-parseTurn = (charTok '[' *> charTok ']' $> Pass) <|> (Move <$> parseCoords)
+parseIdent :: Parser Ident
+parseIdent = some $ satisfy isAsciiUpper
 
-parseMove :: Parser (Player, Turn)
-parseMove = (,) <$> (charTok ';' *> parseColour) <*> parseTurn
+parseValue :: Parser Value
+parseValue = charTok '[' *> many valueChar <* charTok ']'
 
-parseGame :: Parser [(Player, Turn)]
-parseGame = charTok '(' *> many parseMove <* charTok ')'
+parseProperty :: Parser Property
+parseProperty = Property <$> parseIdent <*> some parseValue
+
+parseNode :: Parser Node
+parseNode = Node <$> (charTok ';' *> many parseProperty)
+
+parseTree :: Parser Tree
+parseTree = Tree <$> (charTok '(' *> some parseNode) <*> (many parseTree <* charTok ')')
+
+parseCollection :: Parser Collection
+parseCollection = some parseTree

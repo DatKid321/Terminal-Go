@@ -54,7 +54,7 @@ string rules pos point = Set.unions $ expand [point] []
     same = on (==) (colour pos) point
 
     expand :: Set Point -> Set Point -> [Set Point] -- Expand region by a layer
-    expand curr prev = curr : bool (expand next curr) [] (null next)
+    expand curr prev = curr : bool (expand next curr) [] (Set.null next)
       where
         next :: Set Point -- Next unvisited layer
         next = Set.filter same (foldMap (neighbours rules) curr) `Set.difference` prev
@@ -69,7 +69,7 @@ clear rules targets pos = Position $ colours pos // map (, Nothing) (Set.toList 
     groups = Set.map (string rules pos) targets
 
     captured :: Set Point -- Points in groups with no liberties
-    captured = Set.unions $ Set.filter (null . liberties rules pos) groups
+    captured = Set.unions $ Set.filter (Set.null . liberties rules pos) groups
 
 move :: Rules -> Player -> Point -> Position -> Position -- Place a stone
 move rules player point pos = clear rules [point] cleared

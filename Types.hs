@@ -1,6 +1,6 @@
 module Types where
 
-import Data.Array (Array, (!), (//))
+import Data.Array (Array)
 import Data.Set (Set)
 
 data Player
