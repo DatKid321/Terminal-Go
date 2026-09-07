@@ -14,7 +14,9 @@ type Group = Set Point
 
 type Colour = Maybe Player
 
-newtype Position = Position { colours :: Array Point Colour }
+newtype Position = Position 
+    { colours :: Array Point Colour 
+    }
     deriving (Eq, Show, Ord)
 
 type History = [Position]
@@ -32,6 +34,6 @@ data Illegal
     deriving (Show, Eq)
 
 data Rules = Rules -- Chinese/Japanese/ect preset
-    { size :: Int,
-      more :: ()
+    { size :: Int
+    , more :: ()
     }

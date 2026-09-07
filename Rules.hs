@@ -57,7 +57,7 @@ string rules pos point = Set.unions $ expand [point] []
     expand curr prev = curr : bool (expand next curr) [] (Set.null next)
       where
         next :: Set Point -- Next unvisited layer
-        next = Set.filter same (foldMap (neighbours rules) curr) `Set.difference` prev
+        next = Set.filter same $ Set.difference (foldMap (neighbours rules) curr) prev
 
 liberties :: Rules -> Position -> Group -> Set Point -- Get empty points adjacent to a group
 liberties rules pos = Set.filter (vacant pos) . foldMap (neighbours rules)
@@ -87,12 +87,12 @@ move rules player point pos = clear rules [point] cleared
     cleared = clear rules opponents placed
 
 play :: Rules -> Player -> Turn -> History -> Either Illegal History -- Place a stone if legal
-play _     _      Pass         past@(pos : _) = Right $ pos : past -- Record pass
+play _     _      Pass         past@(pos : _) = Right $ pos : past   -- Record pass
 play rules player (Move point) past@(pos : _)
-    | not $ inside rules point                = Left Outside -- Point is off board
-    | not $ vacant pos point                  = Left Occupied -- Point contains stone
-    | next `elem` past                        = Left Superko -- Position has been repeated
-    | otherwise                               = Right $ next : past -- Position is legal
+    | not $ inside rules point                = Left Outside         -- Point is off board
+    | not $ vacant pos point                  = Left Occupied        -- Point contains stone
+    | next `elem` past                        = Left Superko         -- Position has been repeated
+    | otherwise                               = Right $ next : past  -- Position is legal
   where
     next :: Position -- Position after move
     next = move rules player point pos
@@ -100,7 +100,7 @@ play rules player (Move point) past@(pos : _)
 {-
 ended :: History -> Bool
 ended (pos : prev : before : _) = pos == prev && prev = before
-ended _                = False
+ended _                         = False
 -}
 
 ended :: History -> Bool

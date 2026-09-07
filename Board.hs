@@ -8,12 +8,14 @@ import Control.Monad (ap, join)
 import Types
 import Rules
 
+-- | Denotes the position of a point along an axis
 data Edge
-    = First
-    | Middle
-    | Last
+    = First   -- ^ On the close edge
+    | Middle  -- ^ Away from eiher edge
+    | Last    -- ^ On the far edge
     deriving (Show, Eq, Enum)
 
+-- | Location of a point relative to the board edges
 type Location = (Edge, Edge)
 
 data Reset
