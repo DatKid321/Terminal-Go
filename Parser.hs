@@ -2,8 +2,8 @@ module Parser where
 
 import Control.Applicative (Alternative (..))
 import Data.Char (isSpace)
-import Data.List (uncons, find, elemIndex)
-import Data.Maybe (maybeToList, fromJust)
+import Data.List (uncons, elemIndex)
+import Data.Maybe (fromJust)
 import Control.Monad (mfilter)
 import Control.Monad.Trans.State (StateT(..), runStateT)
 import Data.Functor (($>))

@@ -1,5 +1,5 @@
 import Control.Monad (when)
-import System.IO (hFlush, stdout, hSetEcho, stdin)
+import System.IO (hFlush, stdout)
 
 import Board
 import Parser
@@ -8,27 +8,38 @@ import Types
 
 -- Utils
 
-draw :: Rules -> Position -> IO ()
-draw rules pos = do
+draw :: Rules -> Position -> String -> IO ()
+draw rules pos message = do
     putStr $
         "\ESC[?25l\ESC[H"
         ++ printBoard rules pos
         ++ "\ESC[0J"
-        ++ "Press Enter for next move (or 'q' to quit): "
+        ++ message
         ++ "\ESC[?25h"
     hFlush stdout
 
+finish :: Rules -> History -> IO ()
+finish rules (pos : _) = do
+    draw rules pos $
+        "Black: " ++ show (score rules pos Black) ++ "\n" ++
+        "White: " ++ show (score rules pos White) ++ "\n"
+finish _ [] = pure ()
+
 stepMoves :: Rules -> History -> [(Player, Turn)] -> IO ()
-stepMoves rules history ((player, turn) : moves) = do
-    draw rules $ head history
-    line <- getLine
+stepMoves rules history ((player, turn) : turns) = do
+    draw rules (head history) "Press Enter for next move (or 'q' to quit): "
+    input <- getLine
 
-    when (line /= "q") $ either (putStrLn . ("Illegal move: " ++) . show) (\next -> stepMoves rules next moves) (play rules player turn history)
-
-stepMoves rules history [] = do
-    putStrLn $ "\ESC[H" ++ printBoard rules (head history)
-    putStr "\ESC[0J"
-    putStrLn "End of game"
+    when (input /= "q") $
+        if turn == Pass && ended history
+            then finish rules history
+            else
+                either
+                    (putStrLn . ("Illegal move: " ++) . show)
+                    (\history' -> stepMoves rules history' turns)
+                    (play rules player turn history)
+stepMoves rules history [] =
+    finish rules history
 
 -- Main
 
@@ -36,16 +47,17 @@ main :: IO ()
 main = do
     putStr "\ESC[2J\ESC[H" -- Clear screen
     let rules = Rules
-            { size = 19,
+            { size = 9,
               more = ()
             }
-        sgf = "(;B[qd];W[dd];B[oc];W[pp];B[do];W[dq];B[fp];W[qi];B[cf];W[fd];B[bd];W[ch];B[ef];W[ck];B[cc];W[dc];B[hc];W[cd];B[bc];W[df];B[dg];W[bf];B[be];W[ce];B[cg];W[bg];B[dh];W[ci];B[db];W[eb];B[ca];W[ff];B[ee];W[fe];B[fg];W[gg];B[fh];W[de];B[gh];W[hg];B[he];W[id];B[hd];W[hf];B[ie];W[hh];B[hi];W[ii];B[ij];W[hj];B[gi];W[ji];B[jj];W[ki];B[hk];W[kj];B[bl];W[bk];B[jg];W[jf];B[if];W[ig];B[kg];W[nd];B[od];W[nf];B[mg];W[oe];B[pe];W[pf];B[qf];W[pg];B[qg];W[ph];B[me];W[ne];B[pj];W[qj];B[pl];W[nc];B[ob];W[ld];B[ke];W[pn];B[ni];W[kd];B[jd];W[lf];B[kf];W[lg];B[lh];W[kh];B[li];W[kl];B[nm];W[oj];B[oi];W[pk];B[pi];W[qk];B[ok];W[mk];B[nj];W[qh];B[pm];W[on];B[lm];W[ml];B[om];W[rm];B[qn];W[qo];B[nn];W[jn];B[rl];W[ql];B[qm];W[rn];B[op];W[pq];B[oq];W[fq];B[gq];W[gp];B[eq];W[fr];B[fo];W[er];B[hp];W[jp];B[jl];W[jk];B[ik];W[kk];B[im];W[ln];B[ko];W[kn];B[mm];W[km];B[fc];W[gc];B[gb];W[mp];B[oo];W[po];B[mo];W[lo];B[pr];W[mr];B[qq];W[rp];B[nr];W[rr];B[qr];W[rq];B[mf];W[le];B[ng];W[nb];B[md];W[mc];B[oa];W[kb];B[fb];W[ed];B[eg];W[fk];B[fj];W[ek];B[gf];W[ge];B[ec];W[ih];B[io];W[gk];B[gj];W[gr];B[hq];W[gm];B[hn];W[ir];B[cq];W[cr];B[cp];W[ep];B[eo];W[bn];B[cm];W[cn];B[dm];W[dn];B[em];W[bm];B[fm];W[hl];B[il];W[cl];B[af];W[bh];B[ej];W[gn];B[go];W[re];B[qe];W[rg];B[rf];W[rh];B[hr];W[hs];B[mq];W[lq];B[np];W[nq];B[qp];W[ro];B[mq];W[cb];B[bb];W[nq];B[og];W[jc];B[ic];W[mq];B[jb];W[kc];B[lb];W[la];B[ma];W[of];B[ka];W[lc];B[ns];W[qs];B[nk];W[sf];B[rd];W[ib];B[na];W[dp];B[co];W[ja];B[jo];W[kp];B[iq];W[jq];B[ms];W[ls];B[kr];W[lr];B[jr];W[is];B[dj];W[dk];B[br];W[bs];B[ar];W[bo];B[bp];W[la];B[gs];W[fs];B[ka];W[ps];B[or];W[la];B[gd];W[gf];B[ka];W[ap];B[se];W[la];B[ds];W[cs];B[ka];W[lj];B[mj];W[ll];B[ao];W[la];B[mb];W[an];B[sg];W[hb])"
-        -- sgf = "(;B[jj];W[kk];B[ll];W[jk])"
+        -- sgf = "(;B[ee];W[ge];B[fd];W[cf];B[eg];W[cd];B[gd];W[ec];B[he];W[gb];B[ch];W[hc];B[bg];W[hd];B[hf];W[bf];B[af];W[be];B[dd];W[dc];B[ed];W[dg];B[dh];W[fc];B[cg];W[df];B[ef];W[ae];B[ag];W[de];B[id];W[gc];B[ic];W[ib];B[ie];W[bc];B[gf];W[fh];B[fg];W[eh];B[gh];W[hh];B[gi];W[hg];B[gg];W[cb];B[ig];W[ha];B[ei];W[eb];B[ih];W[fa];B[di];W[bi];B[fi];W[];B[if];W[da];B[hi];W[ad];B[fe];W[];B[bh];W[ai];B[ah];W[eh];B[fh];W[ba];B[ci];W[ab];B[];W[])"
+        sgf = "(;B[fe];W[cc];B[ec];W[ef];B[gg];W[ee];B[fd];W[fg];B[gh];W[dc];B[cg];W[dh];B[eb];W[ce];B[ba];W[cb];B[ca];W[ff];B[gf];W[fh];B[fi];W[ei];B[gi];W[ed];B[bb];W[bc];B[db];W[ac];B[ab];W[bf];B[he];W[ch];B[fa];W[da];B[ea];W[eh];B[fc];W[gb];B[gc];W[ga];B[hb];W[ha];B[hc];W[ib];B[ge];W[bh];B[hg];W[id];B[ic];W[ia];B[ie];W[ig];B[if];W[ih];B[hd];W[ii];B[hi];W[bg];B[fb];W[ha];B[ga];W[ia];B[ib];W[ia];B[ha];W[ae];B[hh];W[ig];B[ih];W[bd];B[];W[be];B[];W[ai];B[];W[bi];B[];W[dd];B[];W[af];B[];W[ag];B[];W[ci];B[];W[eg];B[];W[de];B[];W[dg];B[];W[cf];B[];W[])"
+
         -- sgf = "(;B[jj];W[kk];B[jj];W[jj])"
 
         handle :: ([(Player, Turn)], String) -> IO ()
-        handle (coords, "") = stepMoves rules [blank] coords
-        handle (_, rest)    = putStrLn $ "Unparsed input: " ++ rest
+        handle (turns, "") = stepMoves rules [blank rules] turns
+        handle (_, rest)   = putStrLn $ "Unparsed input: " ++ rest
     maybe (putStrLn "Invalid SGF") handle $ parse parseGame sgf
 
 {-
@@ -61,20 +73,4 @@ main = do
     print $ string 5 testBoard (5,5)
     print $ string 5 testBoard (1,1)
 -}
-
-testRules :: Rules
-testRules = Rules
-    { size = 3
-    , more = ()
-    }
-
-testPos :: Position
-testPos point
-    | point `elem` [(1,1), (1,2), (2,1)] = Just Black
-    | point `elem` [(3,2), (2,3), (3,3)] = Just White
-    | otherwise                          = Nothing
-
-territoryPos :: Position
-territoryPos point
-    | point `elem` [(1,1), (1,2), (1,3), (2,1), (2,3), (3,1), (3,2), (3,3)] = Just Black
-    | otherwise = Nothing
+ 

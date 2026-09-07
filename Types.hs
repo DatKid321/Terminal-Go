@@ -1,7 +1,7 @@
 module Types where
 
+import Data.Array (Array, (!), (//))
 import Data.Set (Set)
-import qualified Data.Set as Set
 
 data Player
     = Black
@@ -14,9 +14,8 @@ type Group = Set Point
 
 type Colour = Maybe Player
 
-type Colouring = [Colour]
-
-type Position = Point -> Colour
+newtype Position = Position { colours :: Array Point Colour }
+    deriving (Eq, Show, Ord)
 
 type History = [Position]
 

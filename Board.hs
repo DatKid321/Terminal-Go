@@ -75,6 +75,9 @@ getLoc size (x, y) = (loc y, loc x)
 
 -- For printing an established board
 
+row :: Rules -> Position -> Int -> [(Point, Colour)]
+row rules pos y = map (ap (,) $ colour pos) $ (, y) <$> [1 .. size rules]
+
 printPoint :: Rules -> Point -> Colour -> String
 printPoint rules pos colour = case colour of
     Nothing     -> bool (glyph $ getLoc (size rules) pos) "*" $ pos `elem` hoshi (size rules)
@@ -85,9 +88,6 @@ printPoint rules pos colour = case colour of
 
     glyph :: Location -> String
     glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
-
-row :: Rules -> Position -> Int -> [(Point, Colour)]
-row rules pos y = map (ap (,) pos) $ (, y) <$> [1 .. size rules]
 
 printBoard :: Rules -> Position -> String
 printBoard rules pos = unlines $ map (style . intercalate "\x2500" . render . row rules pos) [1 .. size rules]
