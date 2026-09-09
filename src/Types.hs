@@ -33,7 +33,38 @@ data Illegal
     | Suicide
     deriving (Show, Eq)
 
-data Rules = Rules -- Chinese/Japanese/ect preset
-    { size :: Int
-    , komi :: Double
+-- Rule variations
+
+data Ko
+    = Simple
+    | Positional
+    | Situational
+    deriving (Eq, Show)
+
+type Suicide = Bool
+
+data Scoring
+    = Area
+    | Territory
+    deriving (Eq, Show)
+
+data Ruleset = Ruleset
+    { ko      :: Ko
+    , suicide :: Bool
+    , scoring :: Scoring
+    }
+
+japanese, korean, chinese, aga, newZealand, trompTaylor :: Ruleset
+
+chinese     = Ruleset Positional  False Area
+japanese    = Ruleset Simple      False Territory
+korean      = Ruleset Simple      False Territory
+aga         = Ruleset Situational False Area
+newZealand  = Ruleset Situational True  Area
+trompTaylor = Ruleset Positional  True  Area
+
+data Rules = Rules
+    { size    :: Int
+    , komi    :: Double
+    , ruleset :: Ruleset
     }

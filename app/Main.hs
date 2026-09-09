@@ -9,7 +9,7 @@ import Data.Bool (bool)
 
 import Board
 import Parser
-import SGF
+import Decoder
 import Rules
 import Types
 
@@ -33,7 +33,7 @@ finish rules (pos : _) =
     draw rules pos (unlines $ map report [Black, White]) >> wait
   where
     report p = show p ++ ": " ++ show (score rules pos p)
-    
+
 finish _ [] = pure ()
 
 stepMoves :: Rules -> History -> [(Player, Turn)] -> IO ()

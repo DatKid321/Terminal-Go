@@ -1,4 +1,4 @@
-module SGF where
+module Decoder where
 
 import Data.Function (on)
 import Data.Bool (bool)
@@ -38,19 +38,30 @@ decodeTree (Tree nodes trees) = foldMap decodeNode nodes ++ foldMap decodeTree (
 
 -- Property decoding
 
-decodeValue :: Read a => Ident -> a -> [Property] -> a
-decodeValue ident preset = fromMaybe preset . asum . map value
+decodeValue :: forall a. (Value -> Maybe a) -> Ident -> a -> [Property] -> a
+decodeValue parse ident = foldr value
   where
-    value :: Read a => Property -> Maybe a
-    value (Property name [text])
-        | name == ident = readMaybe text
-    value _             = Nothing
+    value :: Property -> a -> a
+    value (Property name texts) = bool id (flip fromMaybe $ listToMaybe texts >>= parse) (name == ident)
 
 decodeSize :: [Property] -> Int
-decodeSize = decodeValue "SZ" 19
+decodeSize = decodeValue readMaybe "SZ" 19
 
 decodeKomi :: [Property] -> Double
-decodeKomi = decodeValue "KM" 0
+decodeKomi = decodeValue readMaybe "KM" 0
+
+decodeRuleset :: [Property] -> Ruleset
+decodeRuleset = decodeValue (`lookup` presets) "RU" trompTaylor
+  where
+    presets :: [(String, Ruleset)]
+    presets =
+        [ ("Japanese"    , japanese)
+        , ("Korean"      , korean)
+        , ("Chinese"     , chinese)
+        , ("AGA"         , aga)
+        , ("NZ"          , newZealand)
+        , ("Tromp-Taylor", trompTaylor)
+        ]
 
 decodeSetup :: [Property] -> Position -> Position
 decodeSetup = flip $ foldr apply
@@ -73,3 +84,4 @@ decodeRules = rules . root
     rules = Rules
         <$> decodeSize 
         <*> decodeKomi
+        <*> decodeRuleset

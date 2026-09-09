@@ -9,12 +9,13 @@ library
     default-extensions:
         TupleSections
         OverloadedLists
+        ScopedTypeVariables
 
     exposed-modules:
         Board
         Parser
         Rules
-        SGF
+        Decoder
         Types
 
     build-depends:
