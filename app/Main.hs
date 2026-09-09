@@ -1,8 +1,9 @@
 module Main where
 
 import System.Environment (getArgs)
+import Control.Exception (bracket_)
 import Control.Applicative (liftA3)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import System.IO (hFlush, stdout)
 import Data.Bool (bool)
 
@@ -17,24 +18,28 @@ import Types
 draw :: Rules -> Position -> String -> IO ()
 draw rules pos message = do
     putStr $
-        "\ESC[?25l\ESC[H"
+        "\ESC[H\ESC[0J"
         ++ printBoard rules pos
-        ++ "\ESC[0J"
         ++ message
-        ++ "\ESC[?25h"
     hFlush stdout
 
+wait :: IO ()
+wait = do
+    input <- getLine
+    unless (input == "q") wait
+
 finish :: Rules -> History -> IO ()
-finish rules (pos : _) = draw rules pos $
-    "Black: " ++ show (score rules pos Black) ++ "\n" ++
-    "White: " ++ show (score rules pos White) ++ "\n"
-finish _     []        = pure ()
+finish rules (pos : _) =
+    draw rules pos (unlines $ map report [Black, White]) >> wait
+  where
+    report p = show p ++ ": " ++ show (score rules pos p)
+    
+finish _ [] = pure ()
 
 stepMoves :: Rules -> History -> [(Player, Turn)] -> IO ()
 stepMoves rules history ((player, turn) : turns) = do
     draw rules (head history) "Press Enter for next move (or 'q' to quit): "
     input <- getLine
-
     when (input /= "q") $ either (putStrLn . ("Illegal move: " ++) . show) next (play rules player turn history)
   where
     next :: History -> IO ()
@@ -44,21 +49,24 @@ stepMoves rules history [] = finish rules history
 
 handle :: (Collection, String) -> IO ()
 handle ([tree], "") = stepMoves rules [start] $ decodeTree tree
-    where
+  where
     rules = decodeRules tree
     start = decodeSetup (root tree) $ blank rules
-
-handle (_, rest) = putStrLn $ "Unparsed input: " ++ rest
+handle (_, rest)    = putStrLn $ "Unparsed input: " ++ rest
 
 -- Main
 
-main :: IO ()
-main = do
-    putStr "\ESC[2J\ESC[H"
+screen :: IO a -> IO a
+screen = bracket_ (putStr "\ESC[?1049h\ESC[?25l") (putStr "\ESC[?25h\ESC[?1049l")
+
+run :: IO ()
+run = do
     [path] <- getArgs
     sgf <- readFile path
-            
-    maybe (putStrLn "Invalid SGF") handle $ parse parseCollection sgf
+    maybe (putStrLn "Invalid SGF") handle (parse parseCollection sgf)
+
+main :: IO ()
+main = screen run
 
 {-
 testBoard :: Board
@@ -80,4 +88,3 @@ putStr "\ESC[2J\ESC[H" -- Clear screen
         -- sgf = "(;GM[1]FF[4]SZ[19]PB[Kim Eunji]BR[9d]PW[Yun Junsang]WR[9d]KM[6.5]RE[W+R]DT[2026-05-02]EV[6th Supreme Player 1st tournament]AP[Go Kifu Viewer];B[pd];W[dc];B[dp];W[qp];B[ce];W[ed];B[oq];W[po];B[ql];W[cq];B[dq];W[cp];B[cn];W[co];B[do];W[bn];B[lp];W[no];B[mq];W[pq];B[op];W[qn];B[nc];W[cm];B[dn];W[cr];B[hc];W[qi];B[qf];W[pk];B[bc];W[df];B[cf];W[dg];B[cg];W[dh];B[ch];W[di];B[he];W[hp];B[hm];W[jp];B[pl];W[ok];B[rj];W[qg];B[qj];W[pf];B[rf];W[oi];B[rh];W[md];B[nd];W[mf];B[fq];W[gq];B[fp];W[kq];B[oo];W[on];B[nn];W[ic];B[id];W[jc];B[jd];W[kc];B[fc];W[gd];B[hd];W[ne];B[mc];W[kd];B[om];W[pn];B[nm];W[ci];B[le];W[ke];B[lf];W[if];B[kf];W[je];B[fd];W[ld];B[me];W[mg];B[lh];W[oe];B[pe];W[lg];B[kg];W[kh];B[jh];W[ki];B[jg];W[ji];B[hh];W[hg];B[ii];W[gh];B[ij];W[og];B[db];W[cb];B[eb];W[cc];B[bb];W[rg];B[od];W[lj];B[gi];W[gg];B[dd];W[qh];B[rm];W[rn];B[rd];W[lb];B[el];W[oa];B[ma];W[mb];B[nb];W[na];B[fj];W[qa];B[rb];W[ee];B[ec];W[in];B[im];W[gr];B[lr];W[kr];B[hn];W[pr];B[io];W[nr];B[or];W[os];B[ms];W[ns];B[nq];W[er];B[fr];W[fs];B[dr];W[ds];B[eq];W[es];B[sn];W[so];B[sm];W[rp];B[jo];W[ll];B[gp];W[ip];B[ln];W[ri];B[kk];W[lk];B[fh];W[fg];B[cl];W[bm];B[ck];W[hb];B[gb];W[ha];B[ks];W[jr];B[bi];W[bj];B[bh];W[ho];B[go];W[jk];B[jj];W[kj];B[kl];W[km];B[jl];W[ko];B[pj];W[oj];B[jn];W[jm];B[il];W[kn];B[in];W[lo];B[mo];W[lm];B[mn];W[bl];B[bk];W[cj];B[al];W[de];B[cd];W[dm];B[em];W[qb];B[ob];W[la];B[qc];W[ge];B[fe];W[gf];B[gc];W[ra];B[pb];W[pa];B[nl];W[sb];B[rc];W[sj];B[sk];W[si];B[qk];W[nk];B[pi];W[ph];B[ga];W[ja];B[aj];W[eh];B[fi];W[ff];B[ro];W[qo];B[ml];W[ek];B[dl];W[ej];B[fk];W[qm];B[rl];W[sf];B[se];W[sg];B[mk];W[mj];B[hr];W[js];B[rr];W[rq];B[sq];W[rs];B[hq];W[gs])"
 
 -}
- 

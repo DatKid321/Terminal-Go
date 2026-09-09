@@ -56,19 +56,19 @@ valueChar :: Parser Char
 valueChar = escape <|> isNot ']'
 
 parseIdent :: Parser Ident
-parseIdent = some $ satisfy isAsciiUpper
+parseIdent = tok $ some $ satisfy isAsciiUpper
 
 parseValue :: Parser Value
-parseValue = charTok '[' *> many valueChar <* charTok ']'
+parseValue = tok $ is '[' *> many valueChar <* is ']'
 
 parseProperty :: Parser Property
 parseProperty = Property <$> parseIdent <*> some parseValue
 
 parseNode :: Parser Node
-parseNode = Node <$> (charTok ';' *> many parseProperty)
+parseNode = Node <$ charTok ';' <*> many parseProperty
 
 parseTree :: Parser Tree
-parseTree = Tree <$> (charTok '(' *> some parseNode) <*> (many parseTree <* charTok ')')
+parseTree = Tree <$ charTok '(' <*> some parseNode <*> many parseTree <* charTok ')'
 
 parseCollection :: Parser Collection
-parseCollection = some parseTree
+parseCollection = spaces *> some parseTree

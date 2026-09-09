@@ -7,8 +7,6 @@ import Data.Array (listArray, (!), (//))
 import Data.Bool (bool)
 import Data.Ix (inRange, range)
 import Data.Function (on)
-import Data.Maybe (isNothing)
-import Control.Applicative (liftA2)
 
 -- Import set specific functions
 import Data.Set (Set)
@@ -25,7 +23,7 @@ bounds :: Rules -> (Point, Point)
 bounds rules = ((1, 1), (size rules, size rules))
 
 blank :: Rules -> Position
-blank rules = Position $ listArray (bounds rules) $ repeat Nothing
+blank = Position . flip listArray (repeat Nothing) . bounds
 
 points :: Rules -> [Point]
 points = range . bounds
@@ -40,25 +38,28 @@ setPoint :: Point -> Colour -> Position -> Position
 setPoint point mark pos = Position $ colours pos // [(point, mark)]
 
 vacant :: Position -> Point -> Bool
-vacant pos = isNothing . colour pos
+vacant pos = null . colour pos
 
 neighbours :: Rules -> Point -> Set Point -- Get neighbours of a point
 neighbours rules (x, y) = Set.filter (inside rules) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 
+adjacent :: Rules -> Set Point -> Set Point
+adjacent = foldMap . neighbours
+
 string :: Rules -> Position -> Point -> Group -- Get connected region containing point
-string rules pos point = Set.unions $ expand [point] []
+string rules pos point = mconcat $ expand [point] []
   where
     same :: Point -> Bool -- Check if point has same colour
     same = on (==) (colour pos) point
 
     expand :: Set Point -> Set Point -> [Set Point] -- Expand region by a layer
-    expand curr prev = curr : bool (expand next curr) [] (Set.null next)
+    expand curr prev = curr : bool (expand next curr) [] (null next)
       where
         next :: Set Point -- Next unvisited layer
-        next = Set.filter same $ Set.difference (foldMap (neighbours rules) curr) prev
+        next = Set.filter same $ adjacent rules curr Set.\\ prev
 
 liberties :: Rules -> Position -> Group -> Set Point -- Get empty points adjacent to a group
-liberties rules pos = Set.filter (vacant pos) . foldMap (neighbours rules)
+liberties rules pos = Set.filter (vacant pos) . adjacent rules
 
 clear :: Rules -> Set Point -> Position -> Position -- Remove groups with no liberties
 clear rules targets pos = Position $ colours pos // map (, Nothing) (Set.toList captured)
@@ -66,8 +67,11 @@ clear rules targets pos = Position $ colours pos // map (, Nothing) (Set.toList 
     groups :: Set Group -- Groups containing given points
     groups = Set.map (string rules pos) targets
 
-    captured :: Set Point -- Points in groups with no liberties
-    captured = Set.unions $ Set.filter (Set.null . liberties rules pos) groups
+    free :: Group -> Bool
+    free = any (any (vacant pos) . neighbours rules)
+
+    captured :: Set Point
+    captured = Set.unions $ Set.filter (not . free) groups
 
 move :: Rules -> Player -> Point -> Position -> Position -- Place a stone
 move rules player point pos = clear rules [point] cleared
@@ -76,7 +80,7 @@ move rules player point pos = clear rules [point] cleared
     placed = setPoint point (Just player) pos
 
     enemy :: Point -> Bool -- Check point contains an enemy stone
-    enemy = maybe False (/= player) . colour placed
+    enemy = any (/= player) . colour placed
 
     opponents :: Set Point -- Adjacent enemy stones
     opponents = Set.filter enemy $ neighbours rules point
@@ -104,13 +108,15 @@ ended _                         = False
 -}
 
 ended :: History -> Bool
-ended = Set.null . Set.deleteMin . Set.fromList . take 3 -- May fail pass on turn 1
+ended = null . Set.deleteMin . Set.fromList . take 3 -- May fail pass on turn 1
 
-score :: Rules -> Position -> Player -> Int
-score rules pos player = length $ filter owned $ points rules
+score :: Rules -> Position -> Player -> Double
+score rules pos player = 
+    fromIntegral (length $ filter owned $ points rules)
+    + bool 0 (komi rules) (player == White)
   where
     owned :: Point -> Bool
     owned point = maybe (borders point) Set.singleton (colour pos point) == [player]
 
     borders :: Point -> Set Player
-    borders = foldMap (foldMap Set.singleton . colour pos) . foldMap (neighbours rules) . string rules pos
+    borders = foldMap (foldMap Set.singleton . colour pos) . adjacent rules . string rules pos

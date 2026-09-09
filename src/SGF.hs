@@ -5,6 +5,7 @@ import Data.Bool (bool)
 import Data.Char (ord)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Text.Read (readMaybe)
+import Data.Foldable (asum)
 
 import Rules
 import Parser
@@ -33,12 +34,12 @@ decodeNode :: Node -> [(Player, Turn)]
 decodeNode (Node properties) = mapMaybe decodeTurn properties
 
 decodeTree :: Tree -> [(Player, Turn)]
-decodeTree (Tree nodes trees) = concatMap decodeNode nodes ++ maybe [] decodeTree (listToMaybe trees) -- Only follows first variation
+decodeTree (Tree nodes trees) = foldMap decodeNode nodes ++ foldMap decodeTree (listToMaybe trees) -- Only follows first variation
 
 -- Property decoding
 
 decodeValue :: Read a => Ident -> a -> [Property] -> a
-decodeValue ident preset = fromMaybe preset . listToMaybe . mapMaybe value
+decodeValue ident preset = fromMaybe preset . asum . map value
   where
     value :: Read a => Property -> Maybe a
     value (Property name [text])
@@ -48,7 +49,7 @@ decodeValue ident preset = fromMaybe preset . listToMaybe . mapMaybe value
 decodeSize :: [Property] -> Int
 decodeSize = decodeValue "SZ" 19
 
-decodeKomi :: [Property] -> Rational
+decodeKomi :: [Property] -> Double
 decodeKomi = decodeValue "KM" 0
 
 decodeSetup :: [Property] -> Position -> Position
@@ -61,7 +62,7 @@ decodeSetup = flip $ foldr apply
     apply _                      = id
 
     set :: Colour -> [Value] -> Position -> Position
-    set mark = flip $ foldr $ maybe id (`setPoint` mark) . decodePoint
+    set mark = flip (foldr (`setPoint` mark)) . mapMaybe decodePoint
 
 -- Rules decoding
 

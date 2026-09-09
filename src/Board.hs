@@ -2,8 +2,8 @@ module Board where
 
 import Data.List (intercalate)
 import Data.Bool (bool)
-import Control.Applicative (liftA2, liftA3)
-import Control.Monad (ap, join)
+import Control.Applicative (liftA2)
+import Control.Monad (ap)
 
 import Types
 import Rules
@@ -35,10 +35,10 @@ tup :: (Show a, Read t) => Int -> a -> t -- Create tuple with value repeated n t
 tup n = read . wrap "(" ")" . intercalate "," . replicate n . show
 
 ansi :: Reset -> Maybe RGB -> Maybe RGB -> String -> String -- Colours a string
-ansi res bg fg str
-    | res == None  = ansiString                               -- Keeps colour
-    | res == Store = "\ESC7" ++ ansiString ++ "\ESC8\ESC[1C"  -- Resets colour to previous
-    | res == Full  = ansiString ++ "\ESC[0m"                  -- Resets colour to default
+ansi res bg fg str = case res of
+    None  -> ansiString                              -- Keeps colour
+    Store -> wrap "\ESC7" "\ESC8\ESC[1C" ansiString  -- Resets colour to previous
+    Full  -> ansiString ++ "\ESC[0m"                 -- Resets colour to default
   where
     ansiColour :: Int -> Maybe RGB -> String
     ansiColour n = maybe "" $ \(r, g, b) -> "\ESC[" ++ show n ++ ";2;" ++ show r ++ ";" ++ show g ++ ";" ++ show b ++ "m"
@@ -77,25 +77,22 @@ getLoc size (x, y) = (loc y, loc x)
 
 -- For printing an established board
 
-row :: Rules -> Position -> Int -> [(Point, Colour)]
-row rules pos y = map (ap (,) $ colour pos) $ (, y) <$> [1 .. size rules]
+row :: Rules -> Position -> Int -> [String]
+row rules pos y = map ((printPoint rules <*> colour pos) . (, y)) [1 .. size rules]
 
 printPoint :: Rules -> Point -> Colour -> String
 printPoint rules pos colour = case colour of
     Nothing     -> bool (glyph $ getLoc (size rules) pos) "*" $ pos `elem` hoshi (size rules)
-    Just player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "\x25CF"
+    Just player -> ansi Store Nothing (Just $ tup 3 $ 255 * fromEnum player) "●"
   where
-    glyphs :: [[String]]
-    glyphs = [["\x250C", "\x252C", "\x2510"], ["\x251C", "\x253C", "\x2524"], ["\x2514", "\x2534", "\x2518"]]
+    glyphs :: [String]
+    glyphs = ["┌┬┐", "├┼┤", "└┴┘"]
 
     glyph :: Location -> String
-    glyph (row, col) = glyphs !! fromEnum row !! fromEnum col
+    glyph (row, col) = [glyphs !! fromEnum row !! fromEnum col]
 
 printBoard :: Rules -> Position -> String
-printBoard rules pos = unlines $ map (style . intercalate "\x2500" . render . row rules pos) [1 .. size rules]
+printBoard rules pos = unlines $ map (style . intercalate "─" . row rules pos) [1 .. size rules]
   where
     style :: String -> String
     style = ansi Full (Just (242, 176, 108)) (Just (0, 0, 0)) . wrap " " " "
-
-    render :: [(Point, Colour)] -> [String]
-    render = map $ uncurry $ printPoint rules

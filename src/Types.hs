@@ -35,5 +35,5 @@ data Illegal
 
 data Rules = Rules -- Chinese/Japanese/ect preset
     { size :: Int
-    , komi :: Rational
+    , komi :: Double
     }
