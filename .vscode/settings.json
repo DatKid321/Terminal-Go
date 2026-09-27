@@ -7,5 +7,6 @@
     "terminal.integrated.stickyScroll.enabled": false,
     "editor.inlayHints.enabled": "off",
     "haskell.manageHLS": "PATH",
+    "haskell.sessionLoading": "singleComponent",
     "explorer.sortOrder": "type"
 }

@@ -6,6 +6,7 @@ module Rules where
 import Data.Array (listArray, (!), (//))
 import Data.Bool (bool)
 import Data.Ix (inRange, range)
+import Data.List (uncons, unfoldr)
 import Data.Function (on)
 
 -- Import set specific functions
@@ -88,27 +89,35 @@ move rules player point pos = clear rules [point] cleared
     cleared :: Position -- Position after removing enemy groups
     cleared = clear rules opponents placed
 
+repeats :: Ko -> Player -> Position -> History -> Bool
+repeats ko player next = elem next . map fst . (take 1 . drop 1 <> superko)
+  where
+    superko :: History -> History
+    superko = case ko of
+        Simple      -> const []
+        Positional  -> id
+        Situational -> unfoldr (uncons . drop 1)
+        Natural     -> filter (elem player . snd)
+
 play :: Rules -> Player -> Turn -> History -> Either Illegal History -- Place a stone if legal
-play _     _      Pass         past@(pos : _) = Right $ pos : past   -- Record pass
-play rules player (Move point) past@(pos : _)
-    | not $ inside rules point                = Left Outside         -- Point is off board
-    | not $ vacant pos point                  = Left Occupied        -- Point contains stone
-    | next `elem` past                        = Left Superko         -- Position has been repeated
-    | otherwise                               = Right $ next : past  -- Position is legal
+play _     _      Pass         past@((pos, _) : _)       = Right $ (pos, Nothing) : past -- Record pass
+play rules player (Move point) past@((pos, _) : _)
+    | not $ inside rules point                           = Left Outside    -- Point is off board
+    | not $ vacant pos point                             = Left Occupied   -- Point contains stone
+    | not (suicide $ ruleset rules) && vacant next point = Left Suicide    -- Point is immediately captured
+    | repeats (ko $ ruleset rules) player next past      = Left Repetition -- Position has been repeated
+    | otherwise                                          = Right $ (next, Just player) : past  -- Position is legal
   where
     next :: Position -- Position after move
     next = move rules player point pos
 
 {-
 Add replay? For SGFs that do not nessecarily follow the rules
-
-ended :: History -> Bool
-ended (pos : prev : before : _) = pos == prev && prev = before
-ended _                         = False
 -}
 
 ended :: History -> Bool
-ended = null . Set.deleteMin . Set.fromList . take 3 -- May fail pass on turn 1
+ended ((_, Nothing) : (_, Nothing) : _ : _) = True
+ended _                                     = False
 
 score :: Rules -> Position -> Player -> Double
 score rules pos player = 

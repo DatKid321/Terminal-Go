@@ -29,7 +29,7 @@ wait = do
     unless (input == "q") wait
 
 finish :: Rules -> History -> IO ()
-finish rules (pos : _) =
+finish rules ((pos, _) : _) =
     draw rules pos (unlines $ map report [Black, White]) >> wait
   where
     report p = show p ++ ": " ++ show (score rules pos p)
@@ -38,7 +38,7 @@ finish _ [] = pure ()
 
 stepMoves :: Rules -> History -> [(Player, Turn)] -> IO ()
 stepMoves rules history ((player, turn) : turns) = do
-    draw rules (head history) "Press Enter for next move (or 'q' to quit): "
+    draw rules (fst $ head history) "Press Enter for next move (or 'q' to quit): "
     input <- getLine
     when (input /= "q") $ either (putStrLn . ("Illegal move: " ++) . show) next (play rules player turn history)
   where
@@ -48,7 +48,7 @@ stepMoves rules history ((player, turn) : turns) = do
 stepMoves rules history [] = finish rules history
 
 handle :: (Collection, String) -> IO ()
-handle ([tree], "") = stepMoves rules [start] $ decodeTree tree
+handle ([tree], "") = stepMoves rules [(start, Nothing)] $ decodeTree tree
   where
     rules = decodeRules tree
     start = decodeSetup (root tree) $ blank rules

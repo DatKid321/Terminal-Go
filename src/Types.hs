@@ -19,7 +19,7 @@ newtype Position = Position
     }
     deriving (Eq, Show, Ord)
 
-type History = [Position]
+type History = [(Position, Maybe Player)]
 
 data Turn
     = Pass
@@ -29,8 +29,8 @@ data Turn
 data Illegal
     = Outside
     | Occupied
-    | Superko
     | Suicide
+    | Repetition
     deriving (Show, Eq)
 
 -- Rule variations
@@ -39,9 +39,10 @@ data Ko
     = Simple
     | Positional
     | Situational
+    | Natural
     deriving (Eq, Show)
 
-type Suicide = Bool
+type Suicide = Bool -- True: suicide allowed
 
 data Scoring
     = Area
@@ -54,7 +55,7 @@ data Ruleset = Ruleset
     , scoring :: Scoring
     }
 
-japanese, korean, chinese, aga, newZealand, trompTaylor :: Ruleset
+chinese, japanese, korean, aga, newZealand, trompTaylor, british, french :: Ruleset
 
 chinese     = Ruleset Positional  False Area
 japanese    = Ruleset Simple      False Territory
@@ -62,6 +63,8 @@ korean      = Ruleset Simple      False Territory
 aga         = Ruleset Situational False Area
 newZealand  = Ruleset Situational True  Area
 trompTaylor = Ruleset Positional  True  Area
+british     = Ruleset Natural     False Territory
+french      = Ruleset Natural     False Area
 
 data Rules = Rules
     { size    :: Int

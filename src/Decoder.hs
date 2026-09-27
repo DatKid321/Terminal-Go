@@ -61,6 +61,8 @@ decodeRuleset = decodeValue (`lookup` presets) "RU" trompTaylor
         , ("AGA"         , aga)
         , ("NZ"          , newZealand)
         , ("Tromp-Taylor", trompTaylor)
+        , ("British"     , british)
+        , ("French"      , french)
         ]
 
 decodeSetup :: [Property] -> Position -> Position
