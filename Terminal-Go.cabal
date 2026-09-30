@@ -13,9 +13,12 @@ library
 
     exposed-modules:
         Board
-        Parser
-        Rules
         Decoder
+        Parser
+        Render
+        Render.ASCII
+        Render.Sixel
+        Rules
         Types
 
     build-depends:

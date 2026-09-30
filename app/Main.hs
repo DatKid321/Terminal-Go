@@ -7,7 +7,7 @@ import Control.Monad (when, unless)
 import System.IO (hFlush, stdout)
 import Data.Bool (bool)
 
-import Board
+import Render
 import Parser
 import Decoder
 import Rules
@@ -19,7 +19,7 @@ draw :: Rules -> Position -> String -> IO ()
 draw rules pos message = do
     putStr $
         "\ESC[H\ESC[0J"
-        ++ printBoard rules pos
+        ++ render ASCII rules pos
         ++ message
     hFlush stdout
 

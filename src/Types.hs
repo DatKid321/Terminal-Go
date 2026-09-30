@@ -56,7 +56,6 @@ data Ruleset = Ruleset
     }
 
 chinese, japanese, korean, aga, newZealand, trompTaylor, british, french :: Ruleset
-
 chinese     = Ruleset Positional  False Area
 japanese    = Ruleset Simple      False Territory
 korean      = Ruleset Simple      False Territory
